@@ -41,8 +41,8 @@ def test_lock_holds_plan_world_configurations_and_every_release_ref():
     assert set(LOCK["releases"]) == {"specs", "runner", "verifier", "reporter"}
     assert LOCK["releases"]["specs"] == {
         "repository": "Living-Proof-Labs/robot-capability-specs",
-        "tag": "v1.6.0",
-        "commit": "34681d20bf13ba0a836e03ac09869c7fb13665f1",
+        "tag": "v1.6.1",
+        "commit": "0bdf1db3f975b044692c0b8f1ec37737ad8b889f",
     }
     assert LOCK["world"]["id"] == "hallway-open" and LOCK["world"]["version"] == "0.1.0"
     robot = json.loads((ROOT / "robot.json").read_text())
@@ -59,14 +59,16 @@ def test_every_release_ref_is_a_real_tag():
     runner, reporter = LOCK["releases"]["runner"], LOCK["releases"]["reporter"]
     verifier = LOCK["releases"]["verifier"]
     assert (verifier["tag"], verifier["commit"]) == (
-        "v1.4.0",
-        "208aff60567ed1f75aae8f828a9de38806c99124",
+        "v1.5.0",
+        "c3aab9ea977b07ee395d20720bd4bbbac7305283",
     )
     assert (runner["tag"], runner["commit"]) == (
-        "v1.4.0",
-        "fee459eecbc3bd05686b8358222d6ae778330dc8",
+        "v1.4.1",  # the GitHub release for v1.4.1 is a draft; the tag and commit exist
+        "95ecbd3aae3cfcf81a684398fbf7651281e4eb3a",
     )
-    assert reporter["tag"] == "v1.7.1" and repin.DIGEST.fullmatch(reporter["digest"])
+    assert reporter["tag"] == "v1.9.0" and reporter["digest"] == (
+        "sha256:a7ef8603f44cc5296962e97e8153f9f40e145ef7a631e562a905adefa6fe386e"
+    )
     assert evidence.pending(LOCK) == []
     assert repin.check(LOCK, PYPROJECT) == []
 

@@ -92,7 +92,7 @@ jobs:
     needs: [pins, evidence]
     runs-on: ubuntu-24.04
     env:
-      LIVINGPROOF_VERIFIER_VERSION: "1.4.0"
+      LIVINGPROOF_VERIFIER_VERSION: "1.5.0"
     strategy:
       fail-fast: false
       matrix:
