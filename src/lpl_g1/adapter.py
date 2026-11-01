@@ -14,6 +14,7 @@ class G1:
     id = "unitree-g1"
     root: Path = ROOT
     width_decimals = 2
+    camera = (3.6, -38.0, 200.0)  # stand and media clips: tracking distance, elevation, azimuth
     actuation = "pd_torque"
 
     def base_body(self, name: str) -> str:
