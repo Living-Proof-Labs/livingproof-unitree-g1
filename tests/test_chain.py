@@ -46,15 +46,15 @@ def test_every_release_ref_is_a_real_tag():
     runner, reporter = LOCK["releases"]["runner"], LOCK["releases"]["reporter"]
     verifier = LOCK["releases"]["verifier"]
     assert (verifier["tag"], verifier["commit"]) == (
-        "v1.5.0",
-        "c3aab9ea977b07ee395d20720bd4bbbac7305283",
+        "v1.6.0",
+        "bc58dffc3bffb9f034aa487c47be8d7250eaa288",
     )
     assert (runner["tag"], runner["commit"]) == (
-        "v1.4.1",  # the GitHub release for v1.4.1 is a draft; the tag and commit exist
-        "95ecbd3aae3cfcf81a684398fbf7651281e4eb3a",
+        "v1.5.0",  # the GitHub release for v1.5.0 is a draft; the tag and commit exist
+        "45003dfa46e1f09f3dd0db4ff84bee637f800f1c",
     )
-    assert reporter["tag"] == "v1.9.0" and reporter["digest"] == (
-        "sha256:a7ef8603f44cc5296962e97e8153f9f40e145ef7a631e562a905adefa6fe386e"
+    assert reporter["tag"] == "v1.10.0" and reporter["digest"] == (
+        "sha256:906f893c7e121387f4a04b03b5bda7f7a2c8847d36d694e7b8d52b5123ec96e0"
     )
     assert evidence.pending(LOCK) == []
 
