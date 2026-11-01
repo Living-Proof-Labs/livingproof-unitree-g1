@@ -30,7 +30,7 @@ from lpl_g1 import ROOT
 from livingproof_sim_mujoco.pins import local
 from lpl_g1.profiles import configuration, controller
 from lpl_g1.scene import build
-from lpl_g1.walk import initial_state, runner_settings
+from livingproof_sim_mujoco.walk import initial_state, runner_settings
 
 DEPLOY_MUJOCO_YAML = "deploy/deploy_mujoco/configs/g1.yaml"
 
