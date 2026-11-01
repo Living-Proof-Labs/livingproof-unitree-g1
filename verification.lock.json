@@ -10,20 +10,20 @@
     },
     "runner": {
       "repository": "Living-Proof-Labs/livingproof-sim-mujoco",
-      "tag": "v1.5.0",
-      "commit": "45003dfa46e1f09f3dd0db4ff84bee637f800f1c"
+      "tag": "v1.8.0",
+      "commit": "8a7666f3768969c42da8cfe467547ef71aae82d1"
     },
     "verifier": {
       "repository": "Living-Proof-Labs/capability-verifier",
-      "tag": "v1.7.0",
-      "commit": "2a0127c830862c0c6df28df58b9c51595a4a1705"
+      "tag": "v1.9.0",
+      "commit": "f8dc3d5634cf2ac2931e854b4f0b7d0ae39d7f0b"
     },
     "reporter": {
       "repository": "Living-Proof-Labs/livingproof-capability-report",
-      "tag": "v1.10.0",
-      "commit": "5176d6783b5031069649d7418bca87c367cb5ed6",
+      "tag": "v2.0.0",
+      "commit": "e2de28f683daec4fc11d374376a7aaffd6630ec9",
       "image": "ghcr.io/living-proof-labs/livingproof-capability-report",
-      "digest": "sha256:906f893c7e121387f4a04b03b5bda7f7a2c8847d36d694e7b8d52b5123ec96e0"
+      "digest": "sha256:8dfc0367437bbf5ea61618f447d89c55ab90d93d5099c0bff1805e787c38bf54"
     }
   },
   "world": {

@@ -9,7 +9,7 @@ dependencies = [
     "numpy>=1.26",
     "pyyaml>=6",
     "imageio[ffmpeg]>=2.34",
-    "livingproof-sim-mujoco[torch]",
+    "livingproof-sim-mujoco[torch,media]",
     "jsonschema>=4.26.0",
     "referencing>=0.37.0",
 ]
@@ -34,7 +34,7 @@ torch = { index = "pytorch-cpu" }
 # The runner. PENDING_RELEASE: `task repin -- runner=v1.4.0` rewrites this line to the released
 # tag (verification.lock.json releases.runner). 3de1a91 predates hallway.observe, so
 # `task evidence` needs the repin; lint and unit tests do not.
-livingproof-sim-mujoco = { git = "https://github.com/Living-Proof-Labs/livingproof-sim-mujoco.git", tag = "v1.5.0" }
+livingproof-sim-mujoco = { git = "https://github.com/Living-Proof-Labs/livingproof-sim-mujoco.git", tag = "v1.8.0" }
 
 [tool.pytest.ini_options]
 addopts = "-ra"
