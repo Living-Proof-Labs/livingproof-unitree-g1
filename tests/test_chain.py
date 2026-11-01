@@ -55,19 +55,26 @@ def test_lock_holds_plan_world_configurations_and_every_release_ref():
         assert profile["version"] == c["version"], c["name"]
 
 
-def test_runner_and_reporter_are_released_and_only_the_verifier_is_pending():
+def test_every_release_ref_is_a_real_tag():
     runner, reporter = LOCK["releases"]["runner"], LOCK["releases"]["reporter"]
+    verifier = LOCK["releases"]["verifier"]
+    assert (verifier["tag"], verifier["commit"]) == (
+        "v1.4.0",
+        "208aff60567ed1f75aae8f828a9de38806c99124",
+    )
     assert (runner["tag"], runner["commit"]) == (
         "v1.4.0",
         "fee459eecbc3bd05686b8358222d6ae778330dc8",
     )
     assert reporter["tag"] == "v1.7.1" and repin.DIGEST.fullmatch(reporter["digest"])
-    assert evidence.pending(LOCK) == ["verifier"]
-    problems = repin.check(LOCK, PYPROJECT)
-    assert len(problems) == 1 and "releases.verifier is PENDING_RELEASE" in problems[0]
+    assert evidence.pending(LOCK) == []
+    assert repin.check(LOCK, PYPROJECT) == []
 
 
-def test_evidence_refuses_pending_refs(tmp_path):
+def test_evidence_refuses_pending_refs(tmp_path, monkeypatch):
+    lock = json.loads(json.dumps(LOCK))
+    lock["releases"]["verifier"].update(tag="PENDING_RELEASE", commit="PENDING_RELEASE")
+    monkeypatch.setattr(evidence, "load_lock", lambda *a, **k: lock)
     with pytest.raises(SystemExit, match="PENDING_RELEASE refs \\(verifier\\)"):
         evidence.evidence("stock", tmp_path / "out")
     assert not (tmp_path / "out").exists()

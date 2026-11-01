@@ -15,9 +15,8 @@
     },
     "verifier": {
       "repository": "Living-Proof-Labs/capability-verifier",
-      "tag": "PENDING_RELEASE",
-      "commit": "PENDING_RELEASE",
-      "expected": "next semantic-release tag after #15"
+      "tag": "v1.4.0",
+      "commit": "208aff60567ed1f75aae8f828a9de38806c99124"
     },
     "reporter": {
       "repository": "Living-Proof-Labs/livingproof-capability-report",
