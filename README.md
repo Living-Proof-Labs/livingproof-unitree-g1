@@ -10,7 +10,10 @@ Living Proof Labs does not train controllers. A robot is checked only with a con
 - `configurations/<name>.json`: configuration profiles (`livingproof-configuration-profile/0.1`), version 1.0.0. Each holds its controller artifact, gains, limits and locomotion heights. Tests check the gains and limits against the pinned upstream files.
 - `pins.json`: every upstream file by repository, commit and sha256, including the specs schemas and scenario at v1.5.0 (`1df6eaa`). `task fetch` downloads them into `.cache/` and verifies each one. Nothing is vendored.
 - `runner.json`: runner settings that are not part of the spec, all marked `chosen`: the initial-state noise, the sample rate and the stand length.
-- `src/lpl_g1/`: profiles and schema validation, the scenario (parameters, preconditions, manifest, evaluation, grade, comparison), the scene, wall clearance and the walk.
+- `verification.lock.json`: what a verification run uses. Its `releases` block is the one place for the specs, runner, verifier and reporter refs (tag and commit). It also holds the world, each configuration's name, version and sha256, and the trial plan (20 trials, seeds 1–20, 0.5 m/s, 18 required).
+- `src/lpl_g1/`: profiles and schema validation, scenario parameters and preconditions, the scene, the standing check and `evidence` (sim observations for the verifier). Nothing here grades.
+- `tools/repin.py`: fills `PENDING_RELEASE` refs from real release tags and checks that none remain.
+- `.github/workflows/verify.yml`: sim evidence → capability verifier → capability report.
 
 | Configuration | Controller | Publisher | License |
 |---|---|---|---|
@@ -37,33 +40,44 @@ Every parameter comes from the pinned scenario, the robot and configuration prof
 | trials | seeds 1–20, no retries |
 | `required_passes` | 18 |
 
-- **Preconditions:** `fits_width`, `configuration_offered`, `velocity_interface` and `simulator_declared` are checked first. If any is unmet, the run is graded `UNSUPPORTED` and no trial runs.
-- **Run manifest:** written to `run-manifest.json` before the first trial and validated against the pinned schema. It records the configuration's name, version and file sha256. The runner refuses to start with uncommitted changes, so the robot commit it cites is exact.
-- **Evaluation:** each trial records its trajectory at 50 Hz (`trajectories/seed-NN.json`), and the metrics are evaluated from that recording afterwards.
-- **Wall contacts:** the policy model collides only at its feet, so the walls are visual only. A wall contact is a sample whose world-AABB gap between any robot geom and a wall box is ≤ 0. This is conservative.
-- **Trial outcomes:** a trial that cannot complete is `ERROR`, never `FAIL`.
-- **Grade:** `PASS` with at least 18 passes. `INSUFFICIENT_EVIDENCE` applies only when `ERROR` trials could change the answer; otherwise the grade is `FAIL`.
-- **Comparison:** the higher grade wins first; otherwise non-overlapping Wilson 95% intervals decide; otherwise the result is "no clear winner".
+Trial plan, scenario commit and release refs are read from `verification.lock.json`.
+
+- **Evidence only.** `task evidence` runs every planned seed through the runner's
+  `hallway.observe` and writes one observation per trial (base trace, maximum lateral offset,
+  minimum base height, exit time and real-geometry wall contacts). It also writes a
+  `livingproof-hallway-evidence/1.0.0` manifest that echoes the lock and records the
+  preconditions. No thresholds are applied here.
+- **Assessment:** the capability verifier's hallway evaluators (exit reached, lateral limit,
+  wall contact, fall) assess each trial with structured observed/limit/time/seed failures.
+- **Grade:** the capability report applies `all-required-v1` per trial and aggregates k of N
+  with a Wilson 95% interval: `PASS` at 18 of 20.
 
 ## Tasks
 
-Needs [uv](https://docs.astral.sh/uv/), [Task](https://taskfile.dev) and OSMesa (`libosmesa6`) for recordings. Until the runner is released, it is referenced by path from `../livingproof-sim-mujoco-onnx` (branch `feat/onnx-policy-runner`).
+Needs [uv](https://docs.astral.sh/uv/), [Task](https://taskfile.dev) and OSMesa (`libosmesa6`).
 
 ```sh
-task setup                         # uv sync + fetch
-task check                         # ruff + profiles against the pinned schemas
-task test                          # schemas, gains vs upstream, parameters, evaluation, grade, PD
-task walk CONFIGURATION=stock      # one configuration, seeds 1-20, recordings
+task setup                           # uv sync + fetch
+task check                           # ruff + profiles against the pinned schemas
+task test                            # schemas, gains vs upstream, parameters, lock, repin, PD
+task reference                       # tick-by-tick match against the publishers' loops
+task evidence CONFIGURATION=stock    # sim evidence for the verifier, seeds from the lock
 task stand CONFIGURATION=playground  # zero-command standing check, 10 s
-task walk:all                      # both, then the comparison
-task profile:measure               # width, length, mass for robot.json
+task repin:check                     # fails while any release ref is PENDING_RELEASE
+task repin -- runner=v1.4.0 verifier=vX.Y.Z reporter=vX.Y.Z
+task profile:measure                 # width, length, mass for robot.json
 ```
 
-Results go to `artifacts/<configuration>/`:
+`task evidence` refuses while the lock has `PENDING_RELEASE` refs. For a local run before the
+releases exist, pass `-- --allow-pending`; the manifest then lists what was pending.
+Evidence goes to `artifacts/evidence/<configuration>/` (`manifest.json`, `trials/seed-NN.json`).
+Artifacts are never committed.
 
-- `run-manifest.json`
-- `result.json`: the grade, k/N, Wilson 95% interval and every trial (seed, outcome, first failing metric, metrics). Each trial echoes the configuration name and sha256.
-- `seed-NN.mp4` and `trajectories/seed-NN.json` for each seed
-- `stand.json`
+## Verification workflow
 
-The comparison goes to `artifacts/comparison.json`. Artifacts are never committed.
+`verify.yml` reads every ref from `verification.lock.json`. It checks that none is
+`PENDING_RELEASE`, records evidence per configuration, assesses it with the locked verifier
+release and grades it with the locked capability-report image. It uploads `evidence-*`,
+`verified-*` and `capability-report-*` artifacts and writes the markdown report into the job
+summary. A capability `FAIL` is the result, not a CI failure.
+

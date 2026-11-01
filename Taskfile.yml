@@ -21,30 +21,23 @@ tasks:
       - uv run ruff format --check .
       - 'uv run python -c "from lpl_g1.profiles import robot, configuration; [configuration(c[\"name\"]) for c in robot()[\"configurations\"]]; print(\"profiles valid\")"'
   test:
-    desc: Schemas, pins, gains vs upstream, scenario parameters, evaluation, grade, scene, PD
+    desc: Schemas, pins, gains vs upstream, scenario parameters, lock, repin, scene, PD
     cmds: [uv run pytest tests --junitxml=artifacts/tests.xml]
   reference:
     desc: Tick-by-tick match against play_g1_joystick.py (playground) and deploy_mujoco.py + g1.yaml (stock)
     cmds: [uv run python -m lpl_g1.reference]
-  walk:
-    desc: "walk-hallway@0.1.0, seeds 1-20, one configuration: task walk CONFIGURATION=<name>"
-    cmds: ['uv run python -m lpl_g1.walk walk --configuration {{.CONFIGURATION}}']
+  evidence:
+    desc: "walk-hallway sim evidence for one configuration, no grading: task evidence CONFIGURATION=<name>"
+    cmds: ['uv run python -m lpl_g1.evidence {{.CONFIGURATION}} artifacts/evidence/{{.CONFIGURATION}} {{.CLI_ARGS}}']
   stand:
     desc: "Zero-command standing check: task stand CONFIGURATION=<name>"
     cmds: ['uv run python -m lpl_g1.walk stand --configuration {{.CONFIGURATION}}']
-  compare:
-    desc: Compare the stock and playground runs by the scenario's comparison rule
-    cmds: ['uv run python -m lpl_g1.walk compare --configuration stock --configuration playground']
-  walk:all:
-    desc: Walk and stand for both configurations (same seeds), then compare
-    cmds:
-      - for: [stock, playground]
-        task: walk
-        vars: {CONFIGURATION: '{{.ITEM}}'}
-      - for: [stock, playground]
-        task: stand
-        vars: {CONFIGURATION: '{{.ITEM}}'}
-      - task: compare
+  repin:
+    desc: "Fill PENDING_RELEASE refs from real tags: task repin -- runner=v1.4.0 verifier=vX.Y.Z reporter=vX.Y.Z"
+    cmds: ['python3 tools/repin.py {{.CLI_ARGS}}']
+  repin:check:
+    desc: Fail while verification.lock.json has PENDING_RELEASE refs or the runner is not on its locked tag
+    cmds: [python3 tools/repin.py --check]
   profile:measure:
     desc: Measure robot width, length and mass from the pinned model (robot.json dimensions)
     cmds: [uv run python -m lpl_g1.measure]
