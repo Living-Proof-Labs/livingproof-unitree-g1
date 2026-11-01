@@ -36,12 +36,12 @@ class G1:
         return OnnxPolicy(model, ctrl.policy_path, ctrl.spec)
 
     def initial_state(self, model, data, ctrl, seed, noise, spawn) -> None:
-        from lpl_g1.walk import initial_state
+        from livingproof_sim_mujoco.walk import initial_state
 
         initial_state(model, data, ctrl, seed, noise, spawn)
 
     def runner_settings(self) -> dict:
-        from lpl_g1.walk import runner_settings
+        from livingproof_sim_mujoco.walk import runner_settings
 
         return runner_settings(self.root)
 

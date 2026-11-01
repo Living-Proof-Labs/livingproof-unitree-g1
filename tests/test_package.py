@@ -13,7 +13,9 @@ from livingproof_sim_mujoco import pins
 from livingproof_sim_mujoco.pins import ChecksumError, sha256
 from lpl_g1.profiles import Unsupported, configuration, controller, robot, validate
 from lpl_g1.scene import SCENE, build, place_pose
-from lpl_g1.walk import initial_state, runner_settings
+from livingproof_sim_mujoco.walk import initial_state
+
+from lpl_g1.adapter import ROBOT
 
 
 def local(group: str, path: str):
@@ -154,7 +156,7 @@ def test_seed_noise_is_identical_for_both_configurations():
     for name in CONFIGS:
         d = mujoco.MjData(m)
         c = controller(name, scene)
-        initial_state(m, d, c, 7, runner_settings()["initial_noise"], "spawn-entrance")
+        initial_state(m, d, c, 7, ROBOT.runner_settings()["initial_noise"], "spawn-entrance")
         states.append((d.qpos.copy() - c.initial_qpos, d.qvel.copy()))
     np.testing.assert_allclose(states[0][0][2:], states[1][0][2:], atol=1e-12)
     np.testing.assert_allclose(states[0][1], states[1][1])
@@ -169,7 +171,7 @@ def test_in_step_torque_pd_reproduces_the_published_position_actuators():
         scene = build(actuation)
         m, d = scene.model, mujoco.MjData(scene.model)
         c = controller("playground", scene, actuation=actuation)
-        initial_state(m, d, c, 3, runner_settings()["initial_noise"], "spawn-entrance")
+        initial_state(m, d, c, 3, ROBOT.runner_settings()["initial_noise"], "spawn-entrance")
         OnnxPolicy(m, c.policy_path, c.spec).run(d, 2.0, [0.5, 0.0, 0.0])
         tracks.append(d.qpos.copy())
     np.testing.assert_allclose(tracks[0], tracks[1], atol=1e-6)
@@ -199,5 +201,5 @@ def test_position_initial_state_holds_the_default_pose():
     scene = build("position")
     m, d = scene.model, mujoco.MjData(scene.model)
     c = controller("playground", scene, actuation="position")
-    initial_state(m, d, c, 3, runner_settings()["initial_noise"], "spawn-entrance")
+    initial_state(m, d, c, 3, ROBOT.runner_settings()["initial_noise"], "spawn-entrance")
     np.testing.assert_array_equal(d.ctrl, c.spec.default_pose)
