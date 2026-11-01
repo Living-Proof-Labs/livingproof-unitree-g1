@@ -149,6 +149,7 @@ def controller(
             hold_actuators=[by_joint[j] for j in arms],
             gait_period=s["gait_period_s"],
         )
+        spec = PolicySpec(**{**spec.__dict__, "first_tick": s["first_tick"]})
         for joint, target in zip(arms, s["deploy"]["arm_waist_target"]):
             qpos[model.joint(joint).qposadr[0]] = target
     else:

@@ -30,7 +30,7 @@ def test_profiles_match_the_pinned_v1_5_0_schemas():
     for name in CONFIGS:
         conf, digest = configuration(name)  # validates
         assert digest == sha256(ROOT / f"configurations/{name}.json")
-        assert conf["version"] == "1.0.0"
+        assert conf["version"] == {"stock": "1.1.0", "playground": "1.0.0"}[name]
     with pytest.raises(ValueError, match="robot does not match"):
         validate("robot", {**rob, "extra": 1})
 
@@ -230,3 +230,35 @@ def test_in_step_torque_pd_reproduces_the_published_position_actuators():
         OnnxPolicy(m, c.policy_path, c.spec).run(d, 2.0, [0.5, 0.0, 0.0])
         tracks.append(d.qpos.copy())
     np.testing.assert_allclose(tracks[0], tracks[1], atol=1e-6)
+
+
+def test_runner_is_the_pinned_commit():
+    assert sc.runner_source() == ("3de1a917788629a8e60f19a7b6d629edb25e17de", False)
+
+
+def test_playground_matches_play_g1_joystick_tick_by_tick():
+    from lpl_g1.reference import run
+
+    for cmd in ((0.5, 0.0, 0.0), (0.0, 0.0, 0.0)):
+        r = run("playground", cmd, 100)
+        assert r["first_policy_step"] == {"reference": 9, "runner": 9}
+        assert r["bit_exact"], r["first_divergence"]
+
+
+def test_stock_matches_deploy_mujoco_tick_by_tick():
+    """First action at step 10 as deploy_mujoco.py; identical actions against its loop
+    once its float32 gain and default-angle casts are float64."""
+    from lpl_g1.reference import run
+
+    r = run("stock", (0.5, 0.0, 0.0), 100)
+    assert r["first_policy_step"] == {"reference": 10, "runner": 10}
+    assert r["passed"], r["float64_reference"]
+    assert r["max_abs_diff"]["action"] < 1e-4  # verbatim float32 loop
+
+
+def test_position_initial_state_holds_the_default_pose():
+    scene = build("position")
+    m, d = scene.model, mujoco.MjData(scene.model)
+    c = controller("playground", scene, actuation="position")
+    initial_state(m, d, c, 3, runner_settings()["initial_noise"], "spawn-entrance")
+    np.testing.assert_array_equal(d.ctrl, c.spec.default_pose)

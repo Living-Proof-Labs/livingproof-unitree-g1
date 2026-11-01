@@ -3,7 +3,7 @@
   "format": "livingproof-configuration-profile/0.1",
   "robot": "unitree-g1",
   "name": "stock",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "summary": "Unitree's published rl_gym G1 locomotion controller (motion.pt) with its published deploy gains.",
   "controller": {
     "publisher": "Unitree Robotics",
@@ -175,6 +175,8 @@
       "num_obs": 47
     },
     "gait_period_s": 0.8,
+    "first_tick": 10,
+    "first_tick_note": "deploy_mujoco.py steps first and evaluates the policy when counter % control_decimation == 0 after counter += 1, so the first policy targets are used from physics step 10; until then the PD holds default_angles.",
     "runtime": "TorchScript LSTM in torch CPU; an ONNX export drops its recurrent state (measured max output difference 14.8)",
     "initial_keyframe": "home",
     "initial_pose_note": "Playground MJCF keyframe home, whose leg pose equals default_angles; waist and arms set to arm_waist_target",

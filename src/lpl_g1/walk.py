@@ -70,6 +70,9 @@ def initial_state(model, data, ctrl, seed: int, noise: dict, spawn: str) -> None
     data.qpos[qadr] += dq
     data.qvel[vadr] = dv
     data.qvel[0:6] = dbase
+    if ctrl.spec.actuation == "position":  # hold the default pose until the first tick,
+        for name, q in zip(ctrl.spec.actuators, ctrl.spec.default_pose):  # as keyframe ctrl
+            data.ctrl[model.actuator(name).id] = q
     mujoco.mj_forward(model, data)
 
 

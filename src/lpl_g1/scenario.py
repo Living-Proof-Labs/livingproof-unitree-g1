@@ -86,15 +86,27 @@ def git_head(path: Path) -> tuple[str, bool]:
     return head, dirty
 
 
-def manifest(name: str, run_id: str, root: Path = ROOT, runner_root: Path | None = None) -> dict:
-    """The run manifest, written before the first trial."""
+RUNNER_DIST = "livingproof-sim-mujoco"
+
+
+def runner_source() -> tuple[str, bool]:
+    """Commit of the installed runner: a git dependency's PEP 610 record, else a git checkout."""
+    from importlib.metadata import distribution
+
     import livingproof_sim_mujoco
 
+    info = json.loads(distribution(RUNNER_DIST).read_text("direct_url.json") or "{}")
+    if "vcs_info" in info:
+        return info["vcs_info"]["commit_id"], False
+    return git_head(Path(livingproof_sim_mujoco.__file__).resolve().parents[2])
+
+
+def manifest(name: str, run_id: str, root: Path = ROOT, runner_root: Path | None = None) -> dict:
+    """The run manifest, written before the first trial."""
     rob, (conf, conf_sha) = robot(root), configuration(name, root)
     spec = load_pins(root)["groups"]["specs"]
     world = load_world(root)
-    runner_root = runner_root or Path(livingproof_sim_mujoco.__file__).resolve().parents[2]
-    adapter_commit, adapter_dirty = git_head(runner_root)
+    adapter_commit, adapter_dirty = git_head(runner_root) if runner_root else runner_source()
     robot_commit, robot_dirty = git_head(root)
     p = parameters(name, root)
     doc = {
