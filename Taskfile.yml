@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: Apache-2.0
+version: '3'
+vars:
+  CONFIGURATION: '{{.CONFIGURATION | default "playground"}}'
+env:
+  MUJOCO_GL: osmesa
+  PYOPENGL_PLATFORM: osmesa
+tasks:
+  setup:
+    desc: Install dependencies (uv) and download the pinned upstream files
+    cmds:
+      - uv sync
+      - task: fetch
+  fetch:
+    desc: Download every pin in pins.json into .cache/ and verify its sha256
+    cmds: [uv run python -m lpl_g1.fetch]
+  check:
+    desc: Lint, formatting, and robot/configuration profiles against the pinned v1.5.0 schemas
+    cmds:
+      - uv run ruff check .
+      - uv run ruff format --check .
+      - 'uv run python -c "from lpl_g1.profiles import robot, configuration; [configuration(c[\"name\"]) for c in robot()[\"configurations\"]]; print(\"profiles valid\")"'
+  test:
+    desc: Schemas, pins, gains vs upstream, scenario parameters, evaluation, grade, scene, PD
+    cmds: [uv run pytest tests --junitxml=artifacts/tests.xml]
+  walk:
+    desc: "walk-hallway@0.1.0, seeds 1-20, one configuration: task walk CONFIGURATION=<name>"
+    cmds: ['uv run python -m lpl_g1.walk walk --configuration {{.CONFIGURATION}}']
+  stand:
+    desc: "Zero-command standing check: task stand CONFIGURATION=<name>"
+    cmds: ['uv run python -m lpl_g1.walk stand --configuration {{.CONFIGURATION}}']
+  compare:
+    desc: Compare the stock and playground runs by the scenario's comparison rule
+    cmds: ['uv run python -m lpl_g1.walk compare --configuration stock --configuration playground']
+  walk:all:
+    desc: Walk and stand for both configurations (same seeds), then compare
+    cmds:
+      - for: [stock, playground]
+        task: walk
+        vars: {CONFIGURATION: '{{.ITEM}}'}
+      - for: [stock, playground]
+        task: stand
+        vars: {CONFIGURATION: '{{.ITEM}}'}
+      - task: compare
+  profile:measure:
+    desc: Measure robot width, length and mass from the pinned model (robot.json dimensions)
+    cmds: [uv run python -m lpl_g1.measure]
+  profile:stand:
+    desc: Measure each configuration's nominal base height (zero-command stand)
+    cmds:
+      - for: [stock, playground]
+        task: stand
+        vars: {CONFIGURATION: '{{.ITEM}}'}

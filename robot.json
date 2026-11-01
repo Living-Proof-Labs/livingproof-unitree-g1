@@ -1,0 +1,55 @@
+{
+  "$comment": "Robot profile (robot-capability-specs v1.5.0, specs/robots). model_source is the Playground G1 MJCF used for every configuration; its meshes are mujoco_menagerie unitree_g1 @ 1b86ece (BSD-3-Clause, (c) Unitree Robotics), pinned in pins.json with every other upstream file.",
+  "format": "livingproof-robot-profile/0.1",
+  "id": "unitree-g1",
+  "manufacturer": "Unitree Robotics",
+  "model": "G1 (29 degrees of freedom, rev 1.0, no hands)",
+  "class": "humanoid",
+  "model_source": {
+    "repo": "https://github.com/google-deepmind/mujoco_playground",
+    "path": "mujoco_playground/_src/locomotion/g1/xmls/g1_mjx_feetonly.xml",
+    "commit": "12ad7f3842791ced39f27e5ac96d066bbe361653",
+    "sha256": "fae73d06ae6957ab38e59c67cac5b3665db6de27cd741602dd93951e3f82b72c",
+    "license": "Apache-2.0 (MJCF); meshes BSD-3-Clause (Unitree Robotics, via mujoco_menagerie)"
+  },
+  "dimensions": {
+    "width": {
+      "value": 0.52,
+      "unit": "m",
+      "source": "measured",
+      "ref": "task profile:measure (mesh vertices, widest of the knees_bent and home keyframes)"
+    },
+    "length": {
+      "value": 0.29,
+      "unit": "m",
+      "source": "measured",
+      "ref": "task profile:measure (mesh vertices, longest of the knees_bent and home keyframes)"
+    },
+    "height": {
+      "value": 1.32,
+      "unit": "m",
+      "source": "published",
+      "ref": "Unitree G1 specification sheet (1320 mm standing)"
+    },
+    "mass": {
+      "value": 33.34,
+      "unit": "kg",
+      "source": "measured",
+      "ref": "task profile:measure (sum of MJCF body masses)"
+    }
+  },
+  "configurations": [
+    {
+      "name": "stock",
+      "path": "configurations/stock.json"
+    },
+    {
+      "name": "playground",
+      "path": "configurations/playground.json"
+    }
+  ],
+  "default_configuration": "playground",
+  "simulators": [
+    "mujoco"
+  ]
+}
