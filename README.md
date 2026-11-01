@@ -8,11 +8,11 @@ Living Proof Labs does not train controllers. A robot is checked only with a con
 
 - `robot.json`: robot profile (`livingproof-robot-profile/0.1`). Covers the model source pinned by commit and sha256, the dimensions (each `measured`, `published` or `chosen`), the offered configurations, and `simulators: [mujoco]`.
 - `configurations/<name>.json`: configuration profiles (`livingproof-configuration-profile/0.1`), version 1.0.0. Each holds its controller artifact, gains, limits and locomotion heights. Tests check the gains and limits against the pinned upstream files.
-- `pins.json`: every upstream file by repository, commit and sha256, including the specs schemas and scenario at v1.5.0 (`1df6eaa`). `task fetch` downloads them into `.cache/` and verifies each one. Nothing is vendored.
+- `pins.json`: every upstream file by repository, commit and sha256, including the specs schemas and scenario at v1.5.0 (`1df6eaa`). the pytest session (livingproof_sim_mujoco.pins.fetch) downloads them into `.cache/` and verifies each one. Nothing is vendored.
 - `runner.json`: runner settings that are not part of the spec, all marked `chosen`: the initial-state noise, the sample rate and the stand length.
 - `verification.lock.json`: what a verification run uses. Its `releases` block is the one place for the specs, runner, verifier and reporter refs (tag and commit). It also holds the world, each configuration's name, version and sha256, and the trial plan (20 trials, seeds 1–20, 0.5 m/s, 18 required).
 - `src/lpl_g1/`: profiles and schema validation, scenario parameters and preconditions, the scene, the standing check and `evidence` (sim observations for the verifier). Nothing here grades.
-- `tools/repin.py`: fills `PENDING_RELEASE` refs from real release tags and checks that none remain.
+- `task repin` (capability-verifier's `capability_verifier.repin`, at the locked verifier commit): fills `PENDING_RELEASE` refs from real release tags and checks that none remain.
 - `.github/workflows/verify.yml`: sim evidence → capability verifier → capability report.
 
 | Configuration | Controller | Publisher | License |
@@ -42,7 +42,7 @@ Every parameter comes from the pinned scenario, the robot and configuration prof
 
 Trial plan, scenario commit and release refs are read from `verification.lock.json`.
 
-- **Evidence only.** `task evidence` runs every planned seed through the runner's
+- **Evidence only.** `python -m lpl_g1.evidence` runs every planned seed through the runner's
   `hallway.observe` and writes one observation per trial (base trace, maximum lateral offset,
   minimum base height, exit time and real-geometry wall contacts). It also writes a
   `livingproof-hallway-evidence/1.0.0` manifest that echoes the lock and records the
@@ -57,18 +57,18 @@ Trial plan, scenario commit and release refs are read from `verification.lock.js
 Needs [uv](https://docs.astral.sh/uv/), [Task](https://taskfile.dev) and OSMesa (`libosmesa6`).
 
 ```sh
-task setup                           # uv sync + fetch
-task check                           # ruff + profiles against the pinned schemas
-task test                            # schemas, gains vs upstream, parameters, lock, repin, PD
+uv sync && uv run pytest tests                           # uv sync + tests (the session fetches and verifies every pin)
+uv run ruff check . && uv run ruff format --check .                           # ruff + profiles against the pinned schemas
+uv run pytest tests                            # schemas, gains vs upstream, parameters, lock, PD
 task reference                       # tick-by-tick match against the publishers' loops
-task evidence CONFIGURATION=stock    # sim evidence for the verifier, seeds from the lock
+uv run python -m lpl_g1.evidence stock artifacts/evidence/stock    # sim evidence for the verifier, seeds from the lock
 task stand CONFIGURATION=playground  # zero-command standing check, 10 s
 task repin:check                     # fails while any release ref is PENDING_RELEASE
 task repin -- runner=v1.4.0 verifier=vX.Y.Z reporter=vX.Y.Z
 task profile:measure                 # width, length, mass for robot.json
 ```
 
-`task evidence` refuses while the lock has `PENDING_RELEASE` refs. For a local run before the
+`python -m lpl_g1.evidence` refuses while the lock has `PENDING_RELEASE` refs. For a local run before the
 releases exist, pass `-- --allow-pending`; the manifest then lists what was pending.
 Evidence goes to `artifacts/evidence/<configuration>/` (`manifest.json`, `trials/seed-NN.json`).
 Artifacts are never committed.

@@ -34,10 +34,14 @@ torch = { index = "pytorch-cpu" }
 # The runner. PENDING_RELEASE: `task repin -- runner=v1.4.0` rewrites this line to the released
 # tag (verification.lock.json releases.runner). 3de1a91 predates hallway.observe, so
 # `task evidence` needs the repin; lint and unit tests do not.
-livingproof-sim-mujoco = { git = "https://github.com/Living-Proof-Labs/livingproof-sim-mujoco.git", tag = "v1.4.1" }
+livingproof-sim-mujoco = { git = "https://github.com/Living-Proof-Labs/livingproof-sim-mujoco.git", tag = "v1.5.0" }
 
 [tool.pytest.ini_options]
 addopts = "-ra"
 
 [tool.ruff]
 line-length = 100
+
+[tool.livingproof]
+# walk-hallway CI (capability-verifier walk-hallway.yml) runs livingproof_sim_mujoco.evidence on this
+adapter = "lpl_g1.adapter:ROBOT"

@@ -27,7 +27,7 @@ import mujoco
 import numpy as np
 
 from lpl_g1 import ROOT
-from lpl_g1.fetch import local
+from livingproof_sim_mujoco.pins import local
 from lpl_g1.profiles import configuration, controller
 from lpl_g1.scene import build
 from lpl_g1.walk import initial_state, runner_settings

@@ -8,7 +8,7 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 
-import mujoco
+from livingproof_sim_mujoco.walk import joint_dofs  # noqa: F401
 import numpy as np
 from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
@@ -16,7 +16,7 @@ from livingproof_sim_mujoco import adapters
 from livingproof_sim_mujoco.policy import PolicySpec
 
 from lpl_g1 import ROOT
-from lpl_g1.fetch import load_pins, local, sha256
+from livingproof_sim_mujoco.pins import load_pins, local, sha256
 from lpl_g1.scene import Scene
 
 SCHEMAS = {
@@ -83,7 +83,9 @@ def artifact_path(pin: dict, root: Path = ROOT) -> Path:
                 raise ValueError(f"{pin['path']}: profile pin differs from pins.json")
             path = local(group, pin["path"], root)
             if sha256(path) != pin["sha256"]:
-                raise RuntimeError(f"{path} sha256 mismatch; run task fetch")
+                raise RuntimeError(
+                    f"{path} sha256 mismatch; run uv run pytest (its session fixture fetches the pins)"
+                )
             return path
     raise KeyError(f"{pin['repo']} {pin['path']} is not in pins.json")
 
@@ -156,11 +158,3 @@ def controller(
         raise ValueError(f"unknown adapter {s['adapter']!r}")
     qpos[0:2] = 0.0
     return Controller(conf, digest, path, spec, qpos)
-
-
-def joint_dofs(model: mujoco.MjModel) -> tuple[np.ndarray, np.ndarray]:
-    """qpos and qvel addresses of every hinge joint."""
-    hinge = [
-        j for j in range(model.njnt) if int(model.jnt_type[j]) == int(mujoco.mjtJoint.mjJNT_HINGE)
-    ]
-    return model.jnt_qposadr[hinge], model.jnt_dofadr[hinge]
