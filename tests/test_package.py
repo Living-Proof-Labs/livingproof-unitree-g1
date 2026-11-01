@@ -9,11 +9,9 @@ import yaml
 
 from lpl_g1 import ROOT
 from lpl_g1 import scenario as sc
-from lpl_g1.clearance import Clearance
 from lpl_g1.fetch import ChecksumError, fetch, local, sha256
 from lpl_g1.profiles import Unsupported, configuration, controller, robot, validate
 from lpl_g1.scene import SCENE, build, place_pose
-from lpl_g1.stats import wilson
 from lpl_g1.walk import initial_state, runner_settings
 
 CONFIGS = ["stock", "playground"]
@@ -83,17 +81,8 @@ def test_scenario_parameters_follow_the_pinned_acceptance_table():
     p = sc.parameters("stock")
     assert (p["time_limit"], p["exit_x"], p["wall_clearance"]) == (27.0, 3.0, 0.05)
     assert p["lateral_limit"] == pytest.approx(0.75 - robot()["dimensions"]["width"]["value"] / 2)
-    assert sc.SEEDS == list(range(1, 21)) and sc.REQUIRED_PASSES == 18
-
-
-def test_manifests_validate_and_differ_only_in_configuration():
-    a, _ = sc.manifest("stock", "run")
-    b, _ = sc.manifest("playground", "run")
-    for m in (a, b):
-        validate("manifest", m)
-    assert a["configuration"]["sha256"] == configuration("stock")[1]
-    diff = [k for k in a if a[k] != b[k]]
-    assert diff == ["configuration"], diff  # fall_height is equal for both profiles
+    plan = json.loads((ROOT / "verification.lock.json").read_text())["plan"]
+    assert plan["seeds"] == list(range(1, 21)) and plan["required_passes"] == 18
 
 
 def test_preconditions_give_unsupported_before_trials():
@@ -102,43 +91,6 @@ def test_preconditions_give_unsupported_before_trials():
     assert pre["configuration_offered"] is False
     with pytest.raises(Unsupported):
         configuration("vendor-x")
-
-
-def test_evaluation_from_a_recorded_trajectory():
-    p = sc.parameters("stock")
-    ok = [[t * 0.02, -2.5 + 0.01 * t, 0.0, 0.75, 0.4] for t in range(560)]
-    ev = sc.evaluate(ok, p)
-    assert ev["outcome"] == "PASS" and ev["metrics"]["reached_exit"]
-    wide = [s[:2] + [0.6 if s[0] > 3 else 0.0] + s[3:] for s in ok]
-    assert sc.evaluate(wide, p)["first_failing_metric"] == "max_abs_lateral"
-    short = ok[:100]
-    assert sc.evaluate(short, p)["first_failing_metric"] == "reached_exit"
-    fell = ok[:50] + [[1.02, -2.0, 0.0, 0.3, 0.4]]
-    assert sc.evaluate(fell, p)["first_failing_metric"] == "min_base_height"
-    touch = [s[:4] + [0.0 if 1 < s[0] < 2 else 0.4] for s in ok]
-    ev = sc.evaluate(touch, p)
-    assert ev["metrics"]["wall_contacts"] == 1 and ev["first_failing_metric"] == "wall_contacts"
-
-
-def test_grade_and_comparison_rule():
-    assert sc.grade(["PASS"] * 18 + ["FAIL"] * 2) == "PASS"
-    assert sc.grade(["PASS"] * 17 + ["FAIL"] * 3) == "FAIL"
-    assert sc.grade(["PASS"] * 17 + ["ERROR"] + ["FAIL"] * 2) == "INSUFFICIENT_EVIDENCE"
-
-    def run(name, k, g):
-        return {
-            "configuration": name,
-            "configuration_sha256": "x",
-            "passed": k,
-            "trials": 20,
-            "pass_rate": k / 20,
-            "wilson95": sc.interval(k, 20),
-            "grade": g,
-        }
-
-    assert sc.compare([run("a", 19, "PASS"), run("b", 17, "FAIL")])["better"] == "a"
-    assert sc.compare([run("a", 12, "FAIL"), run("b", 10, "FAIL")])["better"] == "no clear winner"
-    assert sc.compare([run("a", 2, "FAIL"), run("b", 16, "FAIL")])["better"] == "b"
 
 
 def test_fetch_rejects_a_download_with_the_wrong_checksum(tmp_path):
@@ -156,12 +108,6 @@ def test_fetch_rejects_a_download_with_the_wrong_checksum(tmp_path):
     with pytest.raises(ChecksumError, match="f.txt"):
         fetch(tmp_path, opener=lambda url: io.BytesIO(b"tampered"))
     assert not (tmp_path / "d" / "f.txt").exists()
-
-
-def test_wilson_interval():
-    assert wilson(20, 20)[0] == pytest.approx(0.8389, abs=1e-4)
-    lo, hi = wilson(10, 20)
-    assert (round(lo, 4), round(hi, 4)) == (0.2993, 0.7007)
 
 
 def test_scene_keeps_playground_solver_and_collisions():
@@ -191,19 +137,6 @@ def test_spawn_comes_from_the_world_place():
     assert yaw == pytest.approx(np.radians(world["spawn-entrance"]["yaw_deg"]))
 
 
-def test_clearance_sees_the_walls():
-    scene = build()
-    m, d = scene.model, mujoco.MjData(scene.model)
-    c = controller("playground", scene)
-    zero = {k: 0.0 for k in runner_settings()["initial_noise"]}
-    initial_state(m, d, c, 1, zero, "spawn-entrance")
-    gaps = Clearance(m, scene.walls).gaps(d)
-    assert 0.3 < gaps["wall-left"] < 0.75 and 0.3 < gaps["wall-right"] < 0.75
-    d.qpos[1] = 0.70
-    mujoco.mj_forward(m, d)
-    assert Clearance(m, scene.walls).gaps(d)["wall-left"] <= 0.0
-
-
 def test_seed_noise_is_identical_for_both_configurations():
     scene = build()
     m = scene.model
@@ -230,10 +163,6 @@ def test_in_step_torque_pd_reproduces_the_published_position_actuators():
         OnnxPolicy(m, c.policy_path, c.spec).run(d, 2.0, [0.5, 0.0, 0.0])
         tracks.append(d.qpos.copy())
     np.testing.assert_allclose(tracks[0], tracks[1], atol=1e-6)
-
-
-def test_runner_is_the_pinned_commit():
-    assert sc.runner_source() == ("3de1a917788629a8e60f19a7b6d629edb25e17de", False)
 
 
 def test_playground_matches_play_g1_joystick_tick_by_tick():

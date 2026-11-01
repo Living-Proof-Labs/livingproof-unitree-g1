@@ -31,7 +31,9 @@ explicit = true
 
 [tool.uv.sources]
 torch = { index = "pytorch-cpu" }
-# The runner: livingproof-sim-mujoco feat/onnx-policy-runner, pinned by commit.
+# The runner. PENDING_RELEASE: `task repin -- runner=v1.4.0` rewrites this line to the released
+# tag (verification.lock.json releases.runner). 3de1a91 predates hallway.observe, so
+# `task evidence` needs the repin; lint and unit tests do not.
 livingproof-sim-mujoco = { git = "https://github.com/Living-Proof-Labs/livingproof-sim-mujoco.git", rev = "3de1a917788629a8e60f19a7b6d629edb25e17de" }
 
 [tool.pytest.ini_options]
