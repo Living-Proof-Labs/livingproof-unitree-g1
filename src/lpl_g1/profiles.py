@@ -8,7 +8,7 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 
-import mujoco
+from livingproof_sim_mujoco.walk import joint_dofs  # noqa: F401
 import numpy as np
 from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
@@ -156,11 +156,3 @@ def controller(
         raise ValueError(f"unknown adapter {s['adapter']!r}")
     qpos[0:2] = 0.0
     return Controller(conf, digest, path, spec, qpos)
-
-
-def joint_dofs(model: mujoco.MjModel) -> tuple[np.ndarray, np.ndarray]:
-    """qpos and qvel addresses of every hinge joint."""
-    hinge = [
-        j for j in range(model.njnt) if int(model.jnt_type[j]) == int(mujoco.mjtJoint.mjJNT_HINGE)
-    ]
-    return model.jnt_qposadr[hinge], model.jnt_dofadr[hinge]
