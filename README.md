@@ -42,7 +42,7 @@ Every parameter comes from the pinned scenario, the robot and configuration prof
 
 Trial plan, scenario commit and release refs are read from `verification.lock.json`.
 
-- **Evidence only.** `task evidence` runs every planned seed through the runner's
+- **Evidence only.** `python -m lpl_g1.evidence` runs every planned seed through the runner's
   `hallway.observe` and writes one observation per trial (base trace, maximum lateral offset,
   minimum base height, exit time and real-geometry wall contacts). It also writes a
   `livingproof-hallway-evidence/1.0.0` manifest that echoes the lock and records the
@@ -57,18 +57,18 @@ Trial plan, scenario commit and release refs are read from `verification.lock.js
 Needs [uv](https://docs.astral.sh/uv/), [Task](https://taskfile.dev) and OSMesa (`libosmesa6`).
 
 ```sh
-task setup                           # uv sync + fetch
-task check                           # ruff + profiles against the pinned schemas
-task test                            # schemas, gains vs upstream, parameters, lock, PD
+uv sync && uv run python -m lpl_g1.fetch                           # uv sync + fetch
+uv run ruff check . && uv run ruff format --check .                           # ruff + profiles against the pinned schemas
+uv run pytest tests                            # schemas, gains vs upstream, parameters, lock, PD
 task reference                       # tick-by-tick match against the publishers' loops
-task evidence CONFIGURATION=stock    # sim evidence for the verifier, seeds from the lock
+uv run python -m lpl_g1.evidence stock artifacts/evidence/stock    # sim evidence for the verifier, seeds from the lock
 task stand CONFIGURATION=playground  # zero-command standing check, 10 s
 task repin:check                     # fails while any release ref is PENDING_RELEASE
 task repin -- runner=v1.4.0 verifier=vX.Y.Z reporter=vX.Y.Z
 task profile:measure                 # width, length, mass for robot.json
 ```
 
-`task evidence` refuses while the lock has `PENDING_RELEASE` refs. For a local run before the
+`python -m lpl_g1.evidence` refuses while the lock has `PENDING_RELEASE` refs. For a local run before the
 releases exist, pass `-- --allow-pending`; the manifest then lists what was pending.
 Evidence goes to `artifacts/evidence/<configuration>/` (`manifest.json`, `trials/seed-NN.json`).
 Artifacts are never committed.
