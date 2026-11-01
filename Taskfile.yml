@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 version: '3'
 vars:
+  VERIFIER_COMMIT:
+    sh: python3 -c 'import json; print(json.load(open("verification.lock.json"))["releases"]["verifier"]["commit"])'
   CONFIGURATION: '{{.CONFIGURATION | default "playground"}}'
 env:
   MUJOCO_GL: osmesa
@@ -21,7 +23,7 @@ tasks:
       - uv run ruff format --check .
       - 'uv run python -c "from lpl_g1.profiles import robot, configuration; [configuration(c[\"name\"]) for c in robot()[\"configurations\"]]; print(\"profiles valid\")"'
   test:
-    desc: Schemas, pins, gains vs upstream, scenario parameters, lock, repin, scene, PD
+    desc: Schemas, pins, gains vs upstream, scenario parameters, lock, scene, PD
     cmds: [uv run pytest tests --junitxml=artifacts/tests.xml]
   reference:
     desc: Tick-by-tick match against play_g1_joystick.py (playground) and deploy_mujoco.py + g1.yaml (stock)
@@ -34,10 +36,10 @@ tasks:
     cmds: ['uv run python -m lpl_g1.walk stand --configuration {{.CONFIGURATION}}']
   repin:
     desc: "Fill PENDING_RELEASE refs from real tags: task repin -- runner=v1.4.0 verifier=vX.Y.Z reporter=vX.Y.Z"
-    cmds: ['python3 tools/repin.py {{.CLI_ARGS}}']
+    cmds: ['uvx --from git+https://github.com/Living-Proof-Labs/capability-verifier@{{.VERIFIER_COMMIT}} python -m capability_verifier.repin --root . {{.CLI_ARGS}}']
   repin:check:
     desc: Fail while verification.lock.json has PENDING_RELEASE refs or the runner is not on its locked tag
-    cmds: [python3 tools/repin.py --check]
+    cmds: ['uvx --from git+https://github.com/Living-Proof-Labs/capability-verifier@{{.VERIFIER_COMMIT}} python -m capability_verifier.repin --root . --check']
   profile:measure:
     desc: Measure robot width, length and mass from the pinned model (robot.json dimensions)
     cmds: [uv run python -m lpl_g1.measure]

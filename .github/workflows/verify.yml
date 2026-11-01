@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
-# walk-hallway verification chain: sim evidence -> capability verifier -> capability report.
-# Every ref comes from verification.lock.json (releases); nothing is pinned here. The
-# pins job fails while any ref is PENDING_RELEASE, so the chain only runs on released tags.
-# A capability FAIL is the result, not a CI failure: the report is uploaded and summarised,
-# and `grade` (without --require-pass) exits 0 on FAIL. CI fails only on broken tooling.
+# walk-hallway verification chain, owned by capability-verifier's reusable workflow:
+# plan (refs from verification.lock.json) -> evidence per configuration -> verify -> report
+# -> PR comment. A capability FAIL is the result, not a CI failure.
+# The uses: commit must be the verifier release named in verification.lock.json
+# (repin --check enforces that the lock is released; bump both together).
 name: Verify
 on:
   workflow_dispatch:
@@ -13,166 +13,8 @@ on:
 permissions:
   contents: read
 jobs:
-  pins:
-    runs-on: ubuntu-24.04
-    outputs:
-      configurations: ${{ steps.lock.outputs.configurations }}
-      verifier-repository: ${{ steps.lock.outputs.verifier-repository }}
-      verifier-commit: ${{ steps.lock.outputs.verifier-commit }}
-      reporter-image: ${{ steps.lock.outputs.reporter-image }}
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        with:
-          persist-credentials: false
-      - name: Refs from verification.lock.json
-        id: lock
-        run: |
-          {
-            echo "configurations=$(jq -c '[.configurations[].name]' verification.lock.json)"
-            echo "verifier-repository=$(jq -r '.releases.verifier.repository' verification.lock.json)"
-            echo "verifier-commit=$(jq -r '.releases.verifier.commit' verification.lock.json)"
-            echo "reporter-image=$(jq -r '.releases.reporter.image + ":" + (.releases.reporter.tag | ltrimstr("v")) + "@" + .releases.reporter.digest' verification.lock.json)"
-          } >> "$GITHUB_OUTPUT"
-      - name: Every ref is a released tag
-        run: python3 tools/repin.py --check
-  check:
-    runs-on: ubuntu-24.04
-    env:
-      MUJOCO_GL: osmesa
-      PYOPENGL_PLATFORM: osmesa
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        with:
-          persist-credentials: false
-      - uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e
-        with:
-          version: '3.54.0'
-      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libosmesa6
-      - run: python3 -m pip install --user uv==0.13.6
-      - run: task setup
-      - run: task check
-      - run: task test
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        if: ${{ !cancelled() }}
-        with:
-          name: tests
-          path: artifacts/tests.xml
-          retention-days: 14
-  evidence:
-    needs: pins
-    runs-on: ubuntu-24.04
-    timeout-minutes: 120
-    strategy:
-      fail-fast: false
-      matrix:
-        configuration: ${{ fromJSON(needs.pins.outputs.configurations) }}
-    env:
-      CONFIGURATION: ${{ matrix.configuration }}
-      MUJOCO_GL: osmesa
-      PYOPENGL_PLATFORM: osmesa
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        with:
-          persist-credentials: false
-      - uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e
-        with:
-          version: '3.54.0'
-      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libosmesa6
-      - run: python3 -m pip install --user uv==0.13.6
-      - run: task setup
-      - run: task evidence CONFIGURATION="$CONFIGURATION"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        if: always()
-        with:
-          name: evidence-${{ matrix.configuration }}
-          path: artifacts/evidence/${{ matrix.configuration }}/
-          retention-days: 30
-          if-no-files-found: error
-  verify:
-    needs: [pins, evidence]
-    runs-on: ubuntu-24.04
-    env:
-      LIVINGPROOF_VERIFIER_VERSION: "1.5.0"
-    strategy:
-      fail-fast: false
-      matrix:
-        configuration: ${{ fromJSON(needs.pins.outputs.configurations) }}
-    steps:
-      - name: Capability verifier at the locked release
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        with:
-          repository: ${{ needs.pins.outputs.verifier-repository }}
-          ref: ${{ needs.pins.outputs.verifier-commit }}
-          persist-credentials: false
-      - run: python3 -m pip install --user uv==0.13.6
-      - run: uv sync --locked
-      - name: Walk-hallway catalog from the verifier's own lock
-        run: uv run --no-sync python tools/fetch_hallway_specs.py
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        with:
-          name: evidence-${{ matrix.configuration }}
-          path: evidence
-      - name: Assess every trial (no grade here)
-        run: PYTHONPATH=src uv run --no-sync python tools/verify_hallway.py evidence/manifest.json verified
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        if: always()
-        with:
-          name: verified-${{ matrix.configuration }}
-          path: verified/
-          retention-days: 30
-          if-no-files-found: error
-  report:
-    needs: [pins, verify]
-    runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        configuration: ${{ fromJSON(needs.pins.outputs.configurations) }}
-    container:
-      image: ${{ needs.pins.outputs.reporter-image }}
-    steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        with:
-          name: verified-${{ matrix.configuration }}
-          path: verified
-      - name: Validate, grade and render (a capability FAIL exits 0)
-        run: |
-          livingproof-capability-report --version
-          livingproof-capability-report validate verified/bundle/manifest.json
-          mkdir reports
-          livingproof-capability-report grade verified/bundle/manifest.json -o reports/report.json
-          livingproof-capability-report render reports/report.json --format markdown -o reports/report.md
-          livingproof-capability-report render reports/report.json --format html -o reports/report.html
-          livingproof-capability-report render reports/report.json > reports/report.txt
-          (cd reports && sha256sum report.* > SHA256SUMS)
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: capability-report-${{ matrix.configuration }}
-          path: reports/
-          retention-days: 30
-          if-no-files-found: error
-      - name: Capability report in job summary
-        run: cat reports/report.md >> "$GITHUB_STEP_SUMMARY"
-  comment:
-    # One PR comment for every configuration: the reporter's markdown, unchanged, under the
-    # hidden marker; updated in place on each run. Same-repository pull requests only.
-    needs: report
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-24.04
+  walk-hallway:
+    uses: Living-Proof-Labs/capability-verifier/.github/workflows/walk-hallway.yml@d2ee78c44f22259ddbb205380b40e4bbc9fe7f2f
     permissions:
       contents: read
       pull-requests: write
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        with:
-          persist-credentials: false
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        with:
-          pattern: capability-report-*
-          path: reports
-      - name: Post or update the capability-report comment
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          PR: ${{ github.event.pull_request.number }}
-        run: python3 tools/pr_comment.py --repo "$REPO" --pr "$PR" reports/*/report.md

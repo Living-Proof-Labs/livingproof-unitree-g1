@@ -12,7 +12,7 @@ Living Proof Labs does not train controllers. A robot is checked only with a con
 - `runner.json`: runner settings that are not part of the spec, all marked `chosen`: the initial-state noise, the sample rate and the stand length.
 - `verification.lock.json`: what a verification run uses. Its `releases` block is the one place for the specs, runner, verifier and reporter refs (tag and commit). It also holds the world, each configuration's name, version and sha256, and the trial plan (20 trials, seeds 1–20, 0.5 m/s, 18 required).
 - `src/lpl_g1/`: profiles and schema validation, scenario parameters and preconditions, the scene, the standing check and `evidence` (sim observations for the verifier). Nothing here grades.
-- `tools/repin.py`: fills `PENDING_RELEASE` refs from real release tags and checks that none remain.
+- `task repin` (capability-verifier's `capability_verifier.repin`, at the locked verifier commit): fills `PENDING_RELEASE` refs from real release tags and checks that none remain.
 - `.github/workflows/verify.yml`: sim evidence → capability verifier → capability report.
 
 | Configuration | Controller | Publisher | License |
@@ -59,7 +59,7 @@ Needs [uv](https://docs.astral.sh/uv/), [Task](https://taskfile.dev) and OSMesa 
 ```sh
 task setup                           # uv sync + fetch
 task check                           # ruff + profiles against the pinned schemas
-task test                            # schemas, gains vs upstream, parameters, lock, repin, PD
+task test                            # schemas, gains vs upstream, parameters, lock, PD
 task reference                       # tick-by-tick match against the publishers' loops
 task evidence CONFIGURATION=stock    # sim evidence for the verifier, seeds from the lock
 task stand CONFIGURATION=playground  # zero-command standing check, 10 s
