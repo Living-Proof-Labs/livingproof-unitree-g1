@@ -10,9 +10,8 @@
     },
     "runner": {
       "repository": "Living-Proof-Labs/livingproof-sim-mujoco",
-      "tag": "PENDING_RELEASE",
-      "commit": "PENDING_RELEASE",
-      "expected": "v1.4.0"
+      "tag": "v1.4.0",
+      "commit": "fee459eecbc3bd05686b8358222d6ae778330dc8"
     },
     "verifier": {
       "repository": "Living-Proof-Labs/capability-verifier",
@@ -22,10 +21,10 @@
     },
     "reporter": {
       "repository": "Living-Proof-Labs/livingproof-capability-report",
-      "tag": "PENDING_RELEASE",
-      "commit": "PENDING_RELEASE",
-      "expected": "next semantic-release tag after #24",
-      "image": "ghcr.io/living-proof-labs/livingproof-capability-report"
+      "tag": "v1.7.1",
+      "commit": "e57205535337ddc521d0f97d63be43b2d0524a51",
+      "image": "ghcr.io/living-proof-labs/livingproof-capability-report",
+      "digest": "sha256:9832d83eb9cfaaff0ddfc1c2a105ae4b3c89a6e1278693d42250d2b9c05cd695"
     }
   },
   "world": {

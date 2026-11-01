@@ -6,11 +6,14 @@
     python tools/repin.py [--dry-run] runner=v1.4.0 verifier=v1.8.0 reporter=v1.7.0
 
 Each tag is resolved with ``git ls-remote`` against the entry's GitHub repository
-(peeled for annotated tags). A tag that does not exist is an error, never a guess. Pinning
+(peeled for annotated tags). A tag that does not exist is an error, never a guess. An entry
+with an ``image`` (the reporter) also records ``digest``: the registry's manifest digest for
+``image:X.Y.Z``, read anonymously from GHCR, so CI runs ``image:X.Y.Z@digest``. Pinning
 the runner also rewrites its ``[tool.uv.sources]`` line in pyproject.toml to that tag and
 reruns ``uv lock``. The workflow reads every other ref straight from the lock.
 
-``--check`` fails while any ref is PENDING_RELEASE, while the runner source in
+``--check`` fails while any ref is PENDING_RELEASE, while an image entry has no sha256 digest,
+while the runner source in
 pyproject.toml is not the locked tag, and if any dependency is path-pinned.
 Stdlib only, so CI can run it before installing anything.
 """
@@ -23,6 +26,8 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
 LOCK = ROOT / "verification.lock.json"
@@ -30,6 +35,15 @@ PYPROJECT = ROOT / "pyproject.toml"
 PENDING = "PENDING_RELEASE"
 TAG = re.compile(r"v\d+\.\d+\.\d+")
 SHA = re.compile(r"[0-9a-f]{40}")
+DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
+MANIFESTS = ", ".join(
+    [
+        "application/vnd.oci.image.index.v1+json",
+        "application/vnd.docker.distribution.manifest.list.v2+json",
+        "application/vnd.oci.image.manifest.v1+json",
+        "application/vnd.docker.distribution.manifest.v2+json",
+    ]
+)
 RUNNER_DIST = "livingproof-sim-mujoco"
 SOURCE = re.compile(rf"^{RUNNER_DIST}\s*=\s*\{{(?P<body>[^}}]*)\}}", re.M)
 
@@ -52,6 +66,30 @@ def resolve(repository: str, tag: str) -> str:
     return commit
 
 
+def image_digest(image: str, tag: str) -> str:
+    """Manifest digest of a public ghcr.io image tag (``tag`` without the leading v)."""
+    host, _, name = image.partition("/")
+    if host != "ghcr.io":
+        raise SystemExit(f"{image}: only ghcr.io images are supported")
+    with urllib.request.urlopen(
+        f"https://ghcr.io/token?scope=repository:{name}:pull", timeout=60
+    ) as r:
+        token = json.load(r)["token"]
+    req = urllib.request.Request(
+        f"https://ghcr.io/v2/{name}/manifests/{tag}",
+        method="HEAD",
+        headers={"Authorization": f"Bearer {token}", "Accept": MANIFESTS},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            digest = r.headers.get("Docker-Content-Digest", "")
+    except urllib.error.HTTPError as e:
+        raise SystemExit(f"{image}:{tag} is not published ({e.code}); release it first") from e
+    if not DIGEST.fullmatch(digest):
+        raise SystemExit(f"{image}:{tag}: registry returned no sha256 digest")
+    return digest
+
+
 def runner_source(text: str) -> str | None:
     m = SOURCE.search(text)
     return m.group("body").strip() if m else None
@@ -68,6 +106,12 @@ def check(lock: dict, pyproject: str) -> list[str]:
             TAG.fullmatch(ref.get("tag", "")) and SHA.fullmatch(ref.get("commit", ""))
         ):
             problems.append(f"releases.{name} needs a vX.Y.Z tag and a full commit")
+        if (
+            "image" in ref
+            and ref.get("tag") != PENDING
+            and not DIGEST.fullmatch(ref.get("digest", ""))
+        ):
+            problems.append(f"releases.{name} has an image but no sha256 digest")
     if re.search(r"^\S+\s*=\s*\{[^}]*\bpath\s*=", pyproject, re.M):
         problems.append("pyproject.toml has a path-pinned dependency")
     runner = lock["releases"]["runner"]
@@ -77,7 +121,9 @@ def check(lock: dict, pyproject: str) -> list[str]:
     return problems
 
 
-def repin(lock: dict, pyproject: str, pins: dict[str, str], resolver=resolve):
+def repin(
+    lock: dict, pyproject: str, pins: dict[str, str], resolver=resolve, digester=image_digest
+):
     """Return (lock, pyproject, changes) with every named entry resolved."""
     lock = json.loads(json.dumps(lock))
     changes = []
@@ -91,6 +137,10 @@ def repin(lock: dict, pyproject: str, pins: dict[str, str], resolver=resolve):
         changes.append(f"releases.{name}: {ref['tag']} {ref['commit']} -> {tag} {commit}")
         ref.update(tag=tag, commit=commit)
         ref.pop("expected", None)
+        if "image" in ref:
+            old = ref.get("digest", PENDING)
+            ref["digest"] = digester(ref["image"], tag.removeprefix("v"))
+            changes.append(f"releases.{name}.digest: {old} -> {ref['digest']}")
     if "runner" in pins:
         ref = lock["releases"]["runner"]
         new = f'git = "https://github.com/{ref["repository"]}.git", tag = "{ref["tag"]}"'
@@ -101,6 +151,21 @@ def repin(lock: dict, pyproject: str, pins: dict[str, str], resolver=resolve):
         changes.append(f"pyproject.toml {RUNNER_DIST}: {{ {old} }} -> {{ {new} }}")
         changes.append("uv.lock: regenerated by uv lock")
     return lock, pyproject, changes
+
+
+def dump(lock: dict) -> str:
+    """indent=2 JSON with lists of scalars kept on one line, as the lock is hand-written."""
+    text = json.dumps(lock, indent=2)
+    return (
+        re.sub(
+            r"\[\s*([^\[\]{}]*?)\s*\]",
+            lambda m: "[" + ", ".join(x.strip() for x in m.group(1).split(",")) + "]"
+            if m.group(1)
+            else "[]",
+            text,
+        )
+        + "\n"
+    )
 
 
 def main(argv=None) -> int:
@@ -124,7 +189,7 @@ def main(argv=None) -> int:
     print("\n".join(changes))
     if a.dry_run:
         return 0
-    LOCK.write_text(json.dumps(lock, indent=2) + "\n")
+    LOCK.write_text(dump(lock))
     PYPROJECT.write_text(pyproject)
     if "runner" in pins:
         subprocess.run(["uv", "lock"], cwd=ROOT, check=True)

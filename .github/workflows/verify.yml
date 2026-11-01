@@ -31,7 +31,7 @@ jobs:
             echo "configurations=$(jq -c '[.configurations[].name]' verification.lock.json)"
             echo "verifier-repository=$(jq -r '.releases.verifier.repository' verification.lock.json)"
             echo "verifier-commit=$(jq -r '.releases.verifier.commit' verification.lock.json)"
-            echo "reporter-image=$(jq -r '.releases.reporter.image + ":" + (.releases.reporter.tag | ltrimstr("v"))' verification.lock.json)"
+            echo "reporter-image=$(jq -r '.releases.reporter.image + ":" + (.releases.reporter.tag | ltrimstr("v")) + "@" + .releases.reporter.digest' verification.lock.json)"
           } >> "$GITHUB_OUTPUT"
       - name: Every ref is a released tag
         run: python3 tools/repin.py --check
