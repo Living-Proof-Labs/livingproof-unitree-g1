@@ -8,7 +8,7 @@ Living Proof Labs does not train controllers. A robot is checked only with a con
 
 - `robot.json`: robot profile (`livingproof-robot-profile/0.1`). Covers the model source pinned by commit and sha256, the dimensions (each `measured`, `published` or `chosen`), the offered configurations, and `simulators: [mujoco]`.
 - `configurations/<name>.json`: configuration profiles (`livingproof-configuration-profile/0.1`), version 1.0.0. Each holds its controller artifact, gains, limits and locomotion heights. Tests check the gains and limits against the pinned upstream files.
-- `pins.json`: every upstream file by repository, commit and sha256, including the specs schemas and scenario at v1.5.0 (`1df6eaa`). `task fetch` downloads them into `.cache/` and verifies each one. Nothing is vendored.
+- `pins.json`: every upstream file by repository, commit and sha256, including the specs schemas and scenario at v1.5.0 (`1df6eaa`). the pytest session (livingproof_sim_mujoco.pins.fetch) downloads them into `.cache/` and verifies each one. Nothing is vendored.
 - `runner.json`: runner settings that are not part of the spec, all marked `chosen`: the initial-state noise, the sample rate and the stand length.
 - `verification.lock.json`: what a verification run uses. Its `releases` block is the one place for the specs, runner, verifier and reporter refs (tag and commit). It also holds the world, each configuration's name, version and sha256, and the trial plan (20 trials, seeds 1–20, 0.5 m/s, 18 required).
 - `src/lpl_g1/`: profiles and schema validation, scenario parameters and preconditions, the scene, the standing check and `evidence` (sim observations for the verifier). Nothing here grades.
@@ -57,7 +57,7 @@ Trial plan, scenario commit and release refs are read from `verification.lock.js
 Needs [uv](https://docs.astral.sh/uv/), [Task](https://taskfile.dev) and OSMesa (`libosmesa6`).
 
 ```sh
-uv sync && uv run python -m lpl_g1.fetch                           # uv sync + fetch
+uv sync && uv run pytest tests                           # uv sync + tests (the session fetches and verifies every pin)
 uv run ruff check . && uv run ruff format --check .                           # ruff + profiles against the pinned schemas
 uv run pytest tests                            # schemas, gains vs upstream, parameters, lock, PD
 task reference                       # tick-by-tick match against the publishers' loops

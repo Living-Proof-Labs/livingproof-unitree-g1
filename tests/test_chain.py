@@ -4,13 +4,15 @@
 repin and its tests live in capability-verifier (capability_verifier.repin)."""
 
 import json
+import re
+import tomllib
 from pathlib import Path
 
 import pytest
 
 import lpl_g1
 from lpl_g1 import ROOT, evidence
-from lpl_g1.fetch import sha256
+from livingproof_sim_mujoco.pins import sha256
 
 LOCK = json.loads((ROOT / "verification.lock.json").read_text())
 WORKFLOW = (ROOT / ".github/workflows/verify.yml").read_text()
@@ -26,11 +28,7 @@ def test_lock_holds_plan_world_configurations_and_every_release_ref():
         "required_passes": 18,
     }
     assert set(LOCK["releases"]) == {"specs", "runner", "verifier", "reporter"}
-    assert LOCK["releases"]["specs"] == {
-        "repository": "Living-Proof-Labs/robot-capability-specs",
-        "tag": "v1.6.1",
-        "commit": "0bdf1db3f975b044692c0b8f1ec37737ad8b889f",
-    }
+    assert LOCK["releases"]["specs"]["repository"] == "Living-Proof-Labs/robot-capability-specs"
     assert LOCK["world"]["id"] == "hallway-open" and LOCK["world"]["version"] == "0.1.0"
     robot = json.loads((ROOT / "robot.json").read_text())
     assert [c["name"] for c in LOCK["configurations"]] == [
@@ -42,20 +40,20 @@ def test_lock_holds_plan_world_configurations_and_every_release_ref():
         assert profile["version"] == c["version"], c["name"]
 
 
-def test_every_release_ref_is_a_real_tag():
-    runner, reporter = LOCK["releases"]["runner"], LOCK["releases"]["reporter"]
-    verifier = LOCK["releases"]["verifier"]
-    assert (verifier["tag"], verifier["commit"]) == (
-        "v1.6.0",
-        "bc58dffc3bffb9f034aa487c47be8d7250eaa288",
-    )
-    assert (runner["tag"], runner["commit"]) == (
-        "v1.5.0",  # the GitHub release for v1.5.0 is a draft; the tag and commit exist
-        "45003dfa46e1f09f3dd0db4ff84bee637f800f1c",
-    )
-    assert reporter["tag"] == "v1.10.0" and reporter["digest"] == (
-        "sha256:906f893c7e121387f4a04b03b5bda7f7a2c8847d36d694e7b8d52b5123ec96e0"
-    )
+def test_release_refs_come_from_the_lock():
+    """No pinned ref is written here: the lock is the source, and every other place that
+    names a release (verify.yml uses:, the pyproject runner tag, uv.lock) must agree with it."""
+    releases = LOCK["releases"]
+    for name, ref in releases.items():
+        assert re.fullmatch(r"v\d+\.\d+\.\d+", ref["tag"]), name
+        assert re.fullmatch(r"[0-9a-f]{40}", ref["commit"]), name
+    runner, verifier = releases["runner"], releases["verifier"]
+    assert f"walk-hallway.yml@{verifier['commit']}" in STEPS
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    assert pyproject["tool"]["uv"]["sources"]["livingproof-sim-mujoco"]["tag"] == runner["tag"]
+    uv_lock = (ROOT / "uv.lock").read_text()
+    assert f"livingproof-sim-mujoco.git?tag={runner['tag']}#{runner['commit']}" in uv_lock
+    assert re.fullmatch(r"sha256:[0-9a-f]{64}", releases["reporter"]["digest"])
     assert evidence.pending(LOCK) == []
 
 
@@ -74,6 +72,7 @@ def test_verify_is_a_thin_call_to_the_verifier_workflow():
     assert "--require-pass" not in STEPS
     assert "runs-on:" not in STEPS  # every job lives in the reusable workflow
     assert not (ROOT / "tools/repin.py").exists() and not (ROOT / "tools/pr_comment.py").exists()
+    assert not (ROOT / "src/lpl_g1/fetch.py").exists()  # livingproof_sim_mujoco.pins fetches
 
 
 def test_robot_repository_does_no_grading():

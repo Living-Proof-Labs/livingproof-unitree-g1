@@ -16,7 +16,7 @@ from livingproof_sim_mujoco import adapters
 from livingproof_sim_mujoco.policy import PolicySpec
 
 from lpl_g1 import ROOT
-from lpl_g1.fetch import load_pins, local, sha256
+from livingproof_sim_mujoco.pins import load_pins, local, sha256
 from lpl_g1.scene import Scene
 
 SCHEMAS = {
@@ -83,7 +83,9 @@ def artifact_path(pin: dict, root: Path = ROOT) -> Path:
                 raise ValueError(f"{pin['path']}: profile pin differs from pins.json")
             path = local(group, pin["path"], root)
             if sha256(path) != pin["sha256"]:
-                raise RuntimeError(f"{path} sha256 mismatch; run python -m lpl_g1.fetch")
+                raise RuntimeError(
+                    f"{path} sha256 mismatch; run uv run pytest (its session fixture fetches the pins)"
+                )
             return path
     raise KeyError(f"{pin['repo']} {pin['path']} is not in pins.json")
 

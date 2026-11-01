@@ -17,7 +17,7 @@ from livingproof_sim_mujoco.scene import PLACE, WORLD, place_pose  # noqa: F401
 import mujoco
 
 from lpl_g1 import ROOT
-from lpl_g1.fetch import load_pins, local  # noqa: F401
+from livingproof_sim_mujoco.pins import load_pins, local  # noqa: F401
 
 SCENE = "mujoco_playground/_src/locomotion/g1/xmls/scene_mjx_feetonly_flat_terrain.xml"
 

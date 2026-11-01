@@ -17,7 +17,7 @@ import mujoco
 
 from lpl_g1 import ROOT
 from lpl_g1 import scenario as sc
-from lpl_g1.fetch import fetch
+from livingproof_sim_mujoco.pins import fetch
 from lpl_g1.profiles import controller
 from lpl_g1.scene import build
 
