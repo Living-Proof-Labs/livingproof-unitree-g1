@@ -13,7 +13,7 @@ tasks:
     cmds: [uv run python -m lpl_g1.reference]
   stand:
     desc: "Zero-command standing check: task stand CONFIGURATION=<name>"
-    cmds: ['uv run python -m lpl_g1.walk stand --configuration {{.CONFIGURATION}}']
+    cmds: ['uv run python -m livingproof_sim_mujoco.walk stand lpl_g1.adapter:ROBOT --configuration {{.CONFIGURATION}}']
   repin:
     desc: "Fill PENDING_RELEASE refs from real tags: task repin -- runner=v1.4.0 verifier=vX.Y.Z reporter=vX.Y.Z"
     cmds: ['uvx --from git+https://github.com/Living-Proof-Labs/capability-verifier@{{.VERIFIER_COMMIT}} python -m capability_verifier.repin --root . {{.CLI_ARGS}}']
