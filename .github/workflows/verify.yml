@@ -91,6 +91,8 @@ jobs:
   verify:
     needs: [pins, evidence]
     runs-on: ubuntu-24.04
+    env:
+      LIVINGPROOF_VERIFIER_VERSION: "1.4.0"
     strategy:
       fail-fast: false
       matrix:
@@ -151,3 +153,26 @@ jobs:
           if-no-files-found: error
       - name: Capability report in job summary
         run: cat reports/report.md >> "$GITHUB_STEP_SUMMARY"
+  comment:
+    # One PR comment for every configuration: the reporter's markdown, unchanged, under the
+    # hidden marker; updated in place on each run. Same-repository pull requests only.
+    needs: report
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: capability-report-*
+          path: reports
+      - name: Post or update the capability-report comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: python3 tools/pr_comment.py --repo "$REPO" --pr "$PR" reports/*/report.md
