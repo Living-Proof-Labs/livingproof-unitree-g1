@@ -14,7 +14,7 @@ permissions:
   contents: read
 jobs:
   walk-hallway:
-    uses: Living-Proof-Labs/capability-verifier/.github/workflows/walk-hallway.yml@bc58dffc3bffb9f034aa487c47be8d7250eaa288
+    uses: Living-Proof-Labs/capability-verifier/.github/workflows/walk-hallway.yml@2a0127c830862c0c6df28df58b9c51595a4a1705
     permissions:
       contents: read
       pull-requests: write

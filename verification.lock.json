@@ -15,8 +15,8 @@
     },
     "verifier": {
       "repository": "Living-Proof-Labs/capability-verifier",
-      "tag": "v1.6.0",
-      "commit": "bc58dffc3bffb9f034aa487c47be8d7250eaa288"
+      "tag": "v1.7.0",
+      "commit": "2a0127c830862c0c6df28df58b9c51595a4a1705"
     },
     "reporter": {
       "repository": "Living-Proof-Labs/livingproof-capability-report",
