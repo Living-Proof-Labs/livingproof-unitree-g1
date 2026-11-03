@@ -15,15 +15,15 @@
     },
     "verifier": {
       "repository": "Living-Proof-Labs/capability-verifier",
-      "tag": "v1.10.7",
-      "commit": "bdb75c3330feed02fbbc3f2a594eb494292f619c"
+      "tag": "v1.11.0",
+      "commit": "58388d3c5f970e11deae940c26d8558abb36314e"
     },
     "reporter": {
       "repository": "Living-Proof-Labs/livingproof-capability-report",
-      "tag": "v3.0.3",
-      "commit": "4b235e70c940104bbd7e3faacefe6c6a35ccb972",
+      "tag": "v3.0.4",
+      "commit": "f084f252de3e5af91a8099eacfd805dec291e9ec",
       "image": "ghcr.io/living-proof-labs/livingproof-capability-report",
-      "digest": "sha256:816674ac5ee1efb863ab9f780ac8fd24f2839d89f0a8df38f103c953e153e2fb"
+      "digest": "sha256:de95a479ce719ae223aa8938882dbf305852b6ad36d6ff9146231e4321586715"
     }
   },
   "world": {
