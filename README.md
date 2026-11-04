@@ -68,7 +68,7 @@ task repin -- runner=vX.Y.Z verifier=vX.Y.Z reporter=vX.Y.Z   # e.g. runner=v1.8
 task profile:measure                 # width, length, mass for robot.json
 ```
 
-Every release ref in `verification.lock.json` is currently pinned (runner v1.8.3, verifier v1.11.0,
+Every release ref in `verification.lock.json` is currently pinned (runner v1.8.3, verifier v1.14.0,
 reporter v3.0.4). The evidence command refuses if a ref is ever `PENDING_RELEASE`; for a local run
 before a release exists, pass `--allow-pending` and the manifest lists what was pending.
 Evidence goes to `artifacts/evidence/<configuration>/` (`manifest.json`, `trials/seed-NN.json`).
