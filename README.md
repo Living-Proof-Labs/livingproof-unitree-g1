@@ -42,7 +42,7 @@ Every parameter comes from the pinned scenario, the robot and configuration prof
 
 Trial plan, scenario commit and release refs are read from `verification.lock.json`.
 
-- **Evidence only.** `python -m lpl_g1.evidence` runs every planned seed through the runner's
+- **Evidence only.** `python -m livingproof_sim_mujoco.evidence lpl_g1.adapter:ROBOT <configuration> <out>` runs every planned seed through the runner's
   `hallway.observe` and writes one observation per trial (base trace, maximum lateral offset,
   minimum base height, exit time and real-geometry wall contacts). It also writes a
   `livingproof-hallway-evidence/1.0.0` manifest that echoes the lock and records the
@@ -61,15 +61,16 @@ uv sync && uv run pytest tests                           # uv sync + tests (the 
 uv run ruff check . && uv run ruff format --check .                           # ruff + profiles against the pinned schemas
 uv run pytest tests                            # schemas, gains vs upstream, parameters, lock, PD
 task reference                       # tick-by-tick match against the publishers' loops
-uv run python -m lpl_g1.evidence stock artifacts/evidence/stock    # sim evidence for the verifier, seeds from the lock
+uv run python -m livingproof_sim_mujoco.evidence lpl_g1.adapter:ROBOT stock artifacts/evidence/stock  # sim evidence, seeds from the lock (CI's command)
 task stand CONFIGURATION=playground  # zero-command standing check, 10 s
 task repin:check                     # fails while any release ref is PENDING_RELEASE
-task repin -- runner=v1.4.0 verifier=vX.Y.Z reporter=vX.Y.Z
+task repin -- runner=vX.Y.Z verifier=vX.Y.Z reporter=vX.Y.Z   # e.g. runner=v1.8.3, the current pin
 task profile:measure                 # width, length, mass for robot.json
 ```
 
-`python -m lpl_g1.evidence` refuses while the lock has `PENDING_RELEASE` refs. For a local run before the
-releases exist, pass `-- --allow-pending`; the manifest then lists what was pending.
+Every release ref in `verification.lock.json` is currently pinned (runner v1.8.3, verifier v1.11.0,
+reporter v3.0.4). The evidence command refuses if a ref is ever `PENDING_RELEASE`; for a local run
+before a release exists, pass `--allow-pending` and the manifest lists what was pending.
 Evidence goes to `artifacts/evidence/<configuration>/` (`manifest.json`, `trials/seed-NN.json`).
 Artifacts are never committed.
 
