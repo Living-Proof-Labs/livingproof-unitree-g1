@@ -22,10 +22,10 @@
     },
     "reporter": {
       "repository": "Living-Proof-Labs/livingproof-capability-report",
-      "tag": "v3.3.0",
-      "commit": "927d14a38234a9a469423256012226add8844bc3",
+      "tag": "v3.3.1",
+      "commit": "6f7c6b1a834a3f1f78e8ea8a0aa34e89dff88b07",
       "image": "ghcr.io/living-proof-labs/livingproof-capability-report",
-      "digest": "sha256:db6086415d9672fcee078432a649e70d93c5d37b0c51ce51bcca74ff2b56c4bd"
+      "digest": "sha256:898badfd85561b7e5869f86d87a76ab04c4589db3fd83ca034f0947b8402dd6b"
     }
   },
   "world": {
