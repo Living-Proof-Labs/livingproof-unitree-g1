@@ -30,10 +30,10 @@ CONFIGS = ["stock", "playground"]
 SCENARIO_README = "specs/scenarios/walk-hallway/README.md"
 
 
-def test_profiles_match_the_pinned_v1_5_0_schemas():
+def test_profiles_match_the_pinned_v2_0_2_schemas():
     pins = json.loads((ROOT / "pins.json").read_text())["groups"]
-    assert pins["specs"]["tag"] == "v1.5.0"
-    assert pins["specs"]["commit"].startswith("1df6eaa")
+    assert pins["specs"]["tag"] == "v2.0.2"
+    assert pins["specs"]["commit"].startswith("16524cb")
     rob = robot()  # validates
     assert rob["id"] == "unitree-g1" and rob["default_configuration"] in CONFIGS
     assert [c["name"] for c in rob["configurations"]] == CONFIGS
@@ -85,16 +85,19 @@ def test_scenario_parameters_follow_the_pinned_acceptance_table():
     for row in (
         "| `command_speed` | 0.5 m/s",
         "Route length 5.5 m",
-        "| `required_passes` | 18",
-        "20, seeds 1 to 20",
+        "| `trials` | 1 |",
+        "exact nominal pose at `spawn-entrance`",
         "0.05 m humanoid",
     ):
         assert row in text, row
+    assert "required_passes" not in text and "seeds" not in text
     p = sc.parameters("stock")
     assert (p["time_limit"], p["exit_x"], p["wall_clearance"]) == (27.0, 3.0, 0.05)
     assert p["lateral_limit"] == pytest.approx(0.75 - robot()["dimensions"]["width"]["value"] / 2)
     plan = json.loads((ROOT / "verification.lock.json").read_text())["plan"]
-    assert plan["seeds"] == list(range(1, 21)) and plan["required_passes"] == 18
+    # The specification default is 1. Published G1 reports use 3 identical trials.
+    assert plan == {"trials": {"count": 3}, "command_speed": 0.5}
+    assert "seeds" not in plan and "required_passes" not in plan
 
 
 def test_preconditions_give_unsupported_before_trials():
@@ -149,17 +152,26 @@ def test_spawn_comes_from_the_world_place():
     assert yaw == pytest.approx(np.radians(world["spawn-entrance"]["yaw_deg"]))
 
 
-def test_seed_noise_is_identical_for_both_configurations():
+def test_nominal_pose_is_exact_and_start_offset_is_one_declared_change():
     scene = build()
     m = scene.model
-    states = []
     for name in CONFIGS:
-        d = mujoco.MjData(m)
         c = controller(name, scene)
-        initial_state(m, d, c, 7, ROBOT.runner_settings()["initial_noise"], "spawn-entrance")
-        states.append((d.qpos.copy() - c.initial_qpos, d.qvel.copy()))
-    np.testing.assert_allclose(states[0][0][2:], states[1][0][2:], atol=1e-12)
-    np.testing.assert_allclose(states[0][1], states[1][1])
+        d = mujoco.MjData(m)
+        ROBOT.initial_state(m, d, c, "spawn-entrance")
+        nominal = d.qpos.copy()
+        np.testing.assert_allclose(d.qvel, 0.0)
+        again = mujoco.MjData(m)
+        initial_state(m, again, c, "spawn-entrance")
+        np.testing.assert_array_equal(again.qpos, nominal)
+        shifted = mujoco.MjData(m)
+        ROBOT.initial_state(
+            m, shifted, c, "spawn-entrance", start_offset={"base_xy_m": [0.0, 0.05]}
+        )
+        np.testing.assert_allclose(shifted.qpos[0], nominal[0])
+        np.testing.assert_allclose(shifted.qpos[1], nominal[1] + 0.05)
+        np.testing.assert_allclose(shifted.qpos[2:], nominal[2:])
+        np.testing.assert_allclose(shifted.qvel, 0.0)
 
 
 def test_in_step_torque_pd_reproduces_the_published_position_actuators():
@@ -171,7 +183,7 @@ def test_in_step_torque_pd_reproduces_the_published_position_actuators():
         scene = build(actuation)
         m, d = scene.model, mujoco.MjData(scene.model)
         c = controller("playground", scene, actuation=actuation)
-        initial_state(m, d, c, 3, ROBOT.runner_settings()["initial_noise"], "spawn-entrance")
+        initial_state(m, d, c, "spawn-entrance")
         OnnxPolicy(m, c.policy_path, c.spec).run(d, 2.0, [0.5, 0.0, 0.0])
         tracks.append(d.qpos.copy())
     np.testing.assert_allclose(tracks[0], tracks[1], atol=1e-6)
@@ -201,5 +213,5 @@ def test_position_initial_state_holds_the_default_pose():
     scene = build("position")
     m, d = scene.model, mujoco.MjData(scene.model)
     c = controller("playground", scene, actuation="position")
-    initial_state(m, d, c, 3, ROBOT.runner_settings()["initial_noise"], "spawn-entrance")
+    initial_state(m, d, c, "spawn-entrance")
     np.testing.assert_array_equal(d.ctrl, c.spec.default_pose)

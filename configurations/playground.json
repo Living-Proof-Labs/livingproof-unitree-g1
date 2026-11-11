@@ -1,5 +1,5 @@
 {
-  "$comment": "Configuration profile (robot-capability-specs v1.5.0). Gains and limits are the Playground's published values, copied here so this file states what runs; tests check them against the pinned upstream files.",
+  "$comment": "Configuration profile (robot-capability-specs v2.0.2). Gains and limits are the Playground's published values, copied here so this file states what runs; tests check them against the pinned upstream files.",
   "format": "livingproof-configuration-profile/0.1",
   "robot": "unitree-g1",
   "name": "playground",
