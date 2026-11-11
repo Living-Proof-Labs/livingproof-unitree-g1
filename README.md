@@ -67,11 +67,11 @@ task reference                       # tick-by-tick match against the publishers
 uv run python -m livingproof_sim_mujoco.evidence lpl_g1.adapter:ROBOT stock artifacts/evidence/stock  # sim evidence, trials.count from the lock (CI's command)
 task stand CONFIGURATION=playground  # zero-command standing check, 10 s
 task repin:check                     # fails while any release ref is PENDING_RELEASE
-task repin -- runner=vX.Y.Z verifier=vX.Y.Z reporter=vX.Y.Z   # e.g. runner=v2.0.1, the current pin
+task repin -- runner=vX.Y.Z verifier=vX.Y.Z reporter=vX.Y.Z   # e.g. runner=v2.0.3, the current pin
 task profile:measure                 # width, length, mass for robot.json
 ```
 
-Every release ref in `verification.lock.json` is currently pinned (specs v2.0.2, runner v2.0.1,
+Every release ref in `verification.lock.json` is currently pinned (specs v2.0.2, runner v2.0.3,
 verifier v1.16.1, reporter v3.3.1). The evidence command refuses if a ref is ever `PENDING_RELEASE`; for a local run
 before a release exists, pass `--allow-pending` and the manifest lists what was pending.
 Evidence goes to `artifacts/evidence/<configuration>/` (`manifest.json`, `run-manifest.json`, `trials/trial-NN.json`).

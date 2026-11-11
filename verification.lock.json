@@ -10,8 +10,8 @@
     },
     "runner": {
       "repository": "Living-Proof-Labs/livingproof-sim-mujoco",
-      "tag": "v2.0.1",
-      "commit": "5f6b9d10962eb6108dc55b079806b7a3cf794de7"
+      "tag": "v2.0.3",
+      "commit": "292589ad15582c26cff2bffcc851e3abaf4ea708"
     },
     "verifier": {
       "repository": "Living-Proof-Labs/capability-verifier",
