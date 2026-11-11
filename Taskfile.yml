@@ -15,7 +15,7 @@ tasks:
     desc: "Zero-command standing check: task stand CONFIGURATION=<name>"
     cmds: ['uv run python -m livingproof_sim_mujoco.walk stand lpl_g1.adapter:ROBOT --configuration {{.CONFIGURATION}}']
   repin:
-    desc: "Repin release refs to real tags (lock has runner v2.0.1, verifier v1.16.1, reporter v3.0.4): task repin -- runner=vX.Y.Z"
+    desc: "Repin release refs to real tags (lock has runner v2.0.1, verifier v1.16.1, reporter v3.3.1): task repin -- runner=vX.Y.Z"
     cmds: ['uvx --from git+https://github.com/Living-Proof-Labs/capability-verifier@{{.VERIFIER_COMMIT}} python -m capability_verifier.repin --root . {{.CLI_ARGS}}']
   repin:check:
     desc: Check every verification.lock.json ref is a released tag (none PENDING_RELEASE) and the runner is on its locked tag

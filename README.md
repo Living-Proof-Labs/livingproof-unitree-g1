@@ -72,7 +72,7 @@ task profile:measure                 # width, length, mass for robot.json
 ```
 
 Every release ref in `verification.lock.json` is currently pinned (specs v2.0.2, runner v2.0.1,
-verifier v1.16.1, reporter v3.0.4). The evidence command refuses if a ref is ever `PENDING_RELEASE`; for a local run
+verifier v1.16.1, reporter v3.3.1). The evidence command refuses if a ref is ever `PENDING_RELEASE`; for a local run
 before a release exists, pass `--allow-pending` and the manifest lists what was pending.
 Evidence goes to `artifacts/evidence/<configuration>/` (`manifest.json`, `run-manifest.json`, `trials/trial-NN.json`).
 Artifacts are never committed.
