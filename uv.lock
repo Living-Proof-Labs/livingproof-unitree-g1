@@ -186,8 +186,8 @@ wheels = [
 
 [[package]]
 name = "livingproof-sim-mujoco"
-version = "1.8.3"
-source = { git = "https://github.com/Living-Proof-Labs/livingproof-sim-mujoco.git?tag=v1.8.3#2db491ed0ddee66eafcf69e4cefe5c7605c82f91" }
+version = "2.0.0"
+source = { git = "https://github.com/Living-Proof-Labs/livingproof-sim-mujoco.git?tag=v2.0.0#3221901af9836fae31266b2719429ab4000d8399" }
 dependencies = [
     { name = "livingproof-common" },
     { name = "mujoco" },
@@ -232,7 +232,7 @@ dev = [
 requires-dist = [
     { name = "imageio", extras = ["ffmpeg"], specifier = ">=2.34" },
     { name = "jsonschema", specifier = ">=4.26.0" },
-    { name = "livingproof-sim-mujoco", extras = ["torch", "media"], git = "https://github.com/Living-Proof-Labs/livingproof-sim-mujoco.git?tag=v1.8.3" },
+    { name = "livingproof-sim-mujoco", extras = ["torch", "media"], git = "https://github.com/Living-Proof-Labs/livingproof-sim-mujoco.git?tag=v2.0.0" },
     { name = "mujoco", specifier = "==3.17.0" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "pyyaml", specifier = ">=6" },

@@ -1,5 +1,5 @@
 {
-  "$comment": "Configuration profile (robot-capability-specs v1.5.0). The deploy values are Unitree's published deploy_real/configs/g1.yaml, copied here so this file states what runs; tests check them against the pinned upstream file.",
+  "$comment": "Configuration profile (robot-capability-specs v2.0.2). The deploy values are Unitree's published deploy_real/configs/g1.yaml, copied here so this file states what runs; tests check them against the pinned upstream file.",
   "format": "livingproof-configuration-profile/0.1",
   "robot": "unitree-g1",
   "name": "stock",

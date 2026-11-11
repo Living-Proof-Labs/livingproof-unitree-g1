@@ -225,10 +225,10 @@
     },
     "specs": {
       "repository": "Living-Proof-Labs/robot-capability-specs",
-      "tag": "v1.5.0",
-      "commit": "1df6eaa4a194315da51e5d2b05cee8073fc7389b",
+      "tag": "v2.0.2",
+      "commit": "16524cbfeef18ff0454ebf125668b010d38a3993",
       "dest": ".cache/specs",
-      "note": "Schemas and the walk-hallway scenario (#22 merged as 1df6eaa, released as v1.5.0).",
+      "note": "Schemas and the walk-hallway scenario at v2.0.2 (16524cb). Seeds, noise and required_passes are retired; a run is trials.count identical trials from the exact nominal pose.",
       "files": {
         "specs/robots/robot-profile.schema.json": {
           "sha256": "90a02a6b9371cd81b6a5e07cdafeda02727f36c5e17ba9777a9a09807a5d5226",
@@ -239,24 +239,24 @@
           "bytes": 2340
         },
         "specs/robots/run-manifest.schema.json": {
-          "sha256": "00730f3be81f2c96a3a7a01c8c98e60048729b6fae8c2e7ad0f05506be107e50",
-          "bytes": 3287
+          "sha256": "a24285cc786584724fd4890cb2a33d29886c1e6c0d66eeb674a5047419a50e39",
+          "bytes": 3284
         },
         "specs/robots/README.md": {
-          "sha256": "6b3d36ebcbfbe3fb91e225a5d82cd83aab7afd1305e936804e86ccb7071d9b59",
-          "bytes": 5092
+          "sha256": "2b9dcf4dfbebb46dd29b7f1c3ddcaec81b53fe4329dec440c2a45fd42116d839",
+          "bytes": 7432
         },
         "specs/scenarios/walk-hallway/README.md": {
-          "sha256": "d89cb65625895b80b1c319f0802ee42bda7c413fabdfc3b6686d6627e7c2e6c0",
-          "bytes": 4998
+          "sha256": "222c98327279ff83d66fd56b63a4121c14e5f424454816c9dc4390a23b4a0593",
+          "bytes": 7394
         },
         "specs/scenarios/walk-hallway/walk-hallway.feature": {
-          "sha256": "1d62f9a5da5f2e8fc3255495d207138eb8b6e7e12dbc45757c8d430326cc05db",
-          "bytes": 1527
+          "sha256": "5566a50ef75b07bc6aad05b3e2a716fe73f0eb8a129cde233abb091f9205921d",
+          "bytes": 5265
         },
         "specs/scenarios/walk-hallway/compare-configurations.feature": {
-          "sha256": "c0874feb01602e3e134ab01104abe9d050642aba427c80205ffadc016a39ee08",
-          "bytes": 1610
+          "sha256": "2511191ffcb3a75084011ce0b6f3c99cd2f9d79b7fc7f795889f6ea0c7094c2a",
+          "bytes": 1760
         },
         "LICENSES/CC-BY-4.0.txt": {
           "sha256": "d557539df68e771cc1eedcc91d13f70fca930e508d11eedcafa4b15db49e3744",

@@ -2,7 +2,7 @@
 """walk-hallway sim evidence for one G1 configuration: livingproof-sim-mujoco's generic
 loop driven by ``lpl_g1.adapter``. Records observations; never grades.
 
-    python -m lpl_g1.evidence <configuration> <out> [--allow-pending]
+    python -m lpl_g1.evidence <configuration> <out> [--trials N] [--allow-pending]
 """
 
 from __future__ import annotations
@@ -22,8 +22,8 @@ def load_lock(root: Path = ROOT) -> dict:
     return generic.load_lock(root)
 
 
-def evidence(name: str, out: Path, *, jobs: int | None = None, allow_pending=False) -> dict:
-    return generic.evidence(ADAPTER, name, out, jobs=jobs, allow_pending=allow_pending)
+def evidence(name: str, out: Path, *, trials: int | None = None, allow_pending=False) -> dict:
+    return generic.evidence(ADAPTER, name, out, trials=trials, allow_pending=allow_pending)
 
 
 def main(argv=None) -> int:

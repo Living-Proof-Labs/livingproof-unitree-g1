@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """The Unitree G1 adapter for livingproof-sim-mujoco's generic walk-hallway evidence loop.
 Only robot-specific code and data live here: the scene build, the published controllers,
-the seeded initial pose and the profiles."""
+the nominal initial pose and the profiles."""
 
 from __future__ import annotations
 
@@ -35,10 +35,15 @@ class G1:
 
         return OnnxPolicy(model, ctrl.policy_path, ctrl.spec)
 
-    def initial_state(self, model, data, ctrl, seed, noise, spawn) -> None:
+    def initial_state(self, model, data, ctrl, spawn: str, *, start_offset=None) -> None:
+        """Exact nominal pose at ``spawn``. ``start_offset`` is one declared comparison change.
+
+        Signature matches livingproof-sim-mujoco v2.0.0 ``Robot.initial_state``:
+        ``(model, data, ctrl, spawn, start_offset=None)``. There is no seed and no noise.
+        """
         from livingproof_sim_mujoco.walk import initial_state
 
-        initial_state(model, data, ctrl, seed, noise, spawn)
+        initial_state(model, data, ctrl, spawn, start_offset=start_offset)
 
     def runner_settings(self) -> dict:
         from livingproof_sim_mujoco.walk import runner_settings

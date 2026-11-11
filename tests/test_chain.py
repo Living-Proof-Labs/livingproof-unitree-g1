@@ -21,12 +21,8 @@ STEPS = "\n".join(line for line in WORKFLOW.splitlines() if not line.lstrip().st
 
 def test_lock_holds_plan_world_configurations_and_every_release_ref():
     assert LOCK["format"] == "livingproof-verification-lock/1.0.0"
-    assert LOCK["plan"] == {
-        "trials": 20,
-        "seeds": list(range(1, 21)),
-        "command_speed": 0.5,
-        "required_passes": 18,
-    }
+    assert LOCK["plan"] == {"trials": {"count": 3}, "command_speed": 0.5}
+    assert "seeds" not in LOCK["plan"] and "required_passes" not in LOCK["plan"]
     assert set(LOCK["releases"]) == {"specs", "runner", "verifier", "reporter"}
     assert LOCK["releases"]["specs"]["repository"] == "Living-Proof-Labs/robot-capability-specs"
     assert LOCK["world"]["id"] == "hallway-open" and LOCK["world"]["version"] == "0.1.0"

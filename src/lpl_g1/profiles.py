@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Robot and configuration profiles (robot-capability-specs v1.5.0), validated against
+"""Robot and configuration profiles (robot-capability-specs v2.0.2), validated against
 the pinned schemas, and the runner spec built from the selected configuration."""
 
 from __future__ import annotations

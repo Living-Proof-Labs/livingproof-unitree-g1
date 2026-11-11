@@ -1,12 +1,7 @@
 {
-  "$comment": "Runner settings for this repository's MuJoCo walk check. Not a specification format: scenario parameters come from the pinned walk-hallway scenario and the selected configuration profile.",
+  "$comment": "Runner settings for this repository's MuJoCo walk check. Not a specification format: scenario parameters come from the pinned walk-hallway scenario and the selected configuration profile. Trials start at the exact nominal pose; this file has no seeds and no noise.",
   "scenario": "walk-hallway@0.1.0",
   "sample_hz": {"value": 50, "source": "chosen", "reason": "One sample per controller step; metrics are evaluated from this recording."},
-  "initial_noise": {
-    "value": {"joint_pos_rad": 0.05, "joint_vel_rad_s": 0.1, "base_xy_m": 0.02, "base_yaw_rad": 0.05, "base_vel_m_s": 0.05},
-    "source": "chosen",
-    "reason": "Uniform +/- amplitudes, small against the hallway; identical draws per seed for every configuration."
-  },
   "stand_seconds": {"value": 10.0, "source": "chosen", "reason": "Zero-command standing check length."},
   "wall_contact_model": "Conservative world-AABB gap between every robot body geom and each wall box; the walls are visual only because the policy model collides only at the feet. A sample with gap <= 0 counts as a wall contact."
 }
