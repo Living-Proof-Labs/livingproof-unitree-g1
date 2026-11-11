@@ -67,19 +67,19 @@ task reference                       # tick-by-tick match against the publishers
 uv run python -m livingproof_sim_mujoco.evidence lpl_g1.adapter:ROBOT stock artifacts/evidence/stock  # sim evidence, trials.count from the lock (CI's command)
 task stand CONFIGURATION=playground  # zero-command standing check, 10 s
 task repin:check                     # fails while any release ref is PENDING_RELEASE
-task repin -- runner=vX.Y.Z verifier=vX.Y.Z reporter=vX.Y.Z   # e.g. runner=v2.0.0, the current pin
+task repin -- runner=vX.Y.Z verifier=vX.Y.Z reporter=vX.Y.Z   # e.g. runner=v2.0.1, the current pin
 task profile:measure                 # width, length, mass for robot.json
 ```
 
-Every release ref in `verification.lock.json` is currently pinned (specs v2.0.2, runner v2.0.0,
-verifier v1.16.0, reporter v3.0.4). The evidence command refuses if a ref is ever `PENDING_RELEASE`; for a local run
+Every release ref in `verification.lock.json` is currently pinned (specs v2.0.2, runner v2.0.1,
+verifier v1.16.1, reporter v3.0.4). The evidence command refuses if a ref is ever `PENDING_RELEASE`; for a local run
 before a release exists, pass `--allow-pending` and the manifest lists what was pending.
 Evidence goes to `artifacts/evidence/<configuration>/` (`manifest.json`, `run-manifest.json`, `trials/trial-NN.json`).
 Artifacts are never committed.
 
-The next runner pin, sim-mujoco v2.0.1, is the pyproject tag on the `livingproof-sim-mujoco` source
-(`tag = "v2.0.0"`), `verification.lock.json` `releases.runner.tag` and `releases.runner.commit`,
-then `uv lock`. v2.0.1 is not released yet.
+The runner pin is the pyproject tag on the `livingproof-sim-mujoco` source,
+`verification.lock.json` `releases.runner.tag` and `releases.runner.commit`, then `uv lock`.
+`task repin -- runner=vX.Y.Z` rewrites that tag and the lock.
 
 ## Verification workflow
 
