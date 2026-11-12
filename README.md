@@ -40,7 +40,7 @@ Every parameter comes from the pinned scenario, the robot and configuration prof
 | trials | `trials.count` 3 identical trials from the exact nominal pose |
 | start | exact nominal pose at `spawn-entrance` (a `start_offset` would be one declared comparison change) |
 
-The specification's default count is 1. This package uses 3 so a published run can show that the identical trials agree. Evidence 2.0.0 has no seeds and no `required_passes`. The verifier's k-of-N grade for that format requires every trial to pass.
+The specification's default count is 1. This package uses 3 so a published run can show that the identical trials agree. Evidence 2.0.0 has no seeds and no `required_passes`. The run passes when all `trials.count` trials succeed.
 
 Trial plan, scenario commit and release refs are read from `verification.lock.json`.
 
@@ -52,8 +52,8 @@ Trial plan, scenario commit and release refs are read from `verification.lock.js
   Exit 4 means the identical trials disagreed (a test-system reproducibility finding, not a robot grade).
 - **Assessment:** the capability verifier's hallway evaluators (exit reached, lateral limit,
   wall contact, fall) assess each trial with structured observed/limit/time failures.
-- **Grade:** the capability report applies `all-required-v1` per trial and aggregates k of N
-  with a Wilson 95% interval. For evidence 2.0.0, N is `trials.count` and every trial must pass.
+- **Grade:** the capability report applies `all-required-v1` per trial. The run passes when all
+  `trials.count` trials succeed.
 
 ## Tasks
 
