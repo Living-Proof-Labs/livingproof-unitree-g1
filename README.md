@@ -1,5 +1,8 @@
 # livingproof-unitree-g1
 
+**Start here: documentation** — [manual source/preview](docs/index.md).
+The deployment workflow is proposed; the live manual is not yet verified.
+
 Living Proof Labs robot package for the Unitree G1 humanoid, in the [robot-capability-specs](https://github.com/Living-Proof-Labs/robot-capability-specs) v2.0.2 format (`specs/robots/`). It pins an official model and two published, ready-made walking controllers, and runs scenario `walk-hallway@0.1.0` in MuJoCo.
 
 Living Proof Labs does not train controllers. A robot is checked only with a controller its maker or a maintained project has already published, run unchanged.
