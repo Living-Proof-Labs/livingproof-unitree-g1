@@ -7,3 +7,5 @@ artifacts/
 .cache/
 # Downloaded models and controllers (fetched by pin, never committed)
 downloads/
+
+.venv-docs/

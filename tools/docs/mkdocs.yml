@@ -1,0 +1,30 @@
+site_name: Living Proof Labs · Unitree G1
+site_url: https://docs.livingprooflabs.com/livingproof-unitree-g1/
+repo_url: https://github.com/Living-Proof-Labs/livingproof-unitree-g1
+repo_name: Source
+strict: true
+use_directory_urls: false
+theme:
+  name: zensical
+  font: false
+  palette:
+    - scheme: default
+      primary: custom
+      accent: custom
+extra_css: [assets/brand.css]
+markdown_extensions:
+  - tables
+  - toc: {permalink: true}
+  - pymdownx.superfences
+extra: {}
+nav:
+  - Documentation home: https://docs.livingprooflabs.com/
+  - Start here: index.md
+  - Guides: guide.md
+  - Reference:
+      - Tasks: tasks.md
+  - Verification: verification.md
+  - Contribute: contribute.md
+  - Version and source: version.md
+  - Help / report an issue: https://github.com/Living-Proof-Labs/livingproof-unitree-g1/issues
+  - License: https://github.com/Living-Proof-Labs/livingproof-unitree-g1/blob/main/LICENSE
