@@ -89,6 +89,7 @@ def test_ci_runs_through_the_shared_workflow_and_the_adapter():
     adapter = getattr(importlib.import_module(module), name)
     assert ref == "lpl_g1.adapter:ROBOT" and adapter.root == ROOT
     assert sorted(p.name for p in (ROOT / ".github/workflows").iterdir()) == [
+        "manual.yml",
         "release.yml",
         "verify.yml",
     ]
