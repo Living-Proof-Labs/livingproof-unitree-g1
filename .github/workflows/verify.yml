@@ -18,12 +18,3 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-  release:
-    # semantic-release.yml@v3.0.0 analyzes conventional commits, then tags
-    # v${version} and publishes a GitHub release. It does not write a version
-    # into pyproject.toml. GITHUB_TOKEN only.
-    needs: walk-hallway
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    permissions:
-      contents: write
-    uses: Living-Proof-Labs/collaboration-guidelines/.github/workflows/semantic-release.yml@v3.0.0

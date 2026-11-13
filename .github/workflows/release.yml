@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Release
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  release:
+    # semantic-release.yml@v3.0.0 analyzes conventional commits, then tags
+    # v${version} and publishes a GitHub release. It does not write a version
+    # into pyproject.toml.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    uses: Living-Proof-Labs/collaboration-guidelines/.github/workflows/semantic-release.yml@v3.0.0
