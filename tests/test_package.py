@@ -37,7 +37,7 @@ def test_profiles_match_the_pinned_v2_0_2_schemas():
     for name in CONFIGS:
         conf, digest = configuration(name)  # validates
         assert digest == sha256(ROOT / f"configurations/{name}.json")
-        assert conf["version"] == {"stock": "1.1.0", "playground": "1.0.0"}[name]
+        assert conf["version"] == {"stock": "1.1.1", "playground": "1.0.1"}[name]
     with pytest.raises(ValueError, match="robot does not match"):
         validate("robot", {**rob, "extra": 1})
 
