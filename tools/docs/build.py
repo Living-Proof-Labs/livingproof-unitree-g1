@@ -7,7 +7,7 @@ import shutil
 import subprocess
 from html.parser import HTMLParser
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 from urllib.request import urlopen
 
 import yaml
@@ -26,14 +26,48 @@ class Page(HTMLParser):
         super().__init__()
         self.ids = set()
         self.links = []
+        self.stylesheets = []
         self.feed(text)
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
         if "id" in attrs:
             self.ids.add(attrs["id"])
+        if tag == "link" and attrs.get("rel") == "stylesheet":
+            self.stylesheets.append(attrs["href"])
         if tag == "a" and "href" in attrs:
             self.links.append(attrs["href"])
+
+
+def stage_brand(source, css, expected_digest):
+    """Verify pinned bytes and version its URL by its complete content digest."""
+    digest = hashlib.sha256(css).hexdigest()
+    if digest != expected_digest:
+        raise ValueError("Shared brand checksum mismatch")
+    asset = f"assets/brand.css?v={digest}"
+    (source / "assets").mkdir(exist_ok=True)
+    # Keep a stable file so cached old HTML cannot reference a removed asset.
+    (source / "assets/brand.css").write_bytes(css)
+    return asset
+
+
+def check_brand(html, page_path, page, asset, expected_digest):
+    """Check the actual stylesheet reference and bytes, including nested pages."""
+    matches = []
+    for href in page.stylesheets:
+        url = urlsplit(href)
+        if url.scheme or url.netloc:
+            continue
+        if url.path.startswith("/livingproof-unitree-g1/"):
+            target = (html / unquote(url.path.removeprefix("/livingproof-unitree-g1/"))).resolve()
+        else:
+            target = (page_path.parent / unquote(url.path)).resolve()
+        if target == (html / urlsplit(asset).path).resolve() and parse_qs(url.query) == {
+            "v": [expected_digest]
+        }:
+            matches.append(target)
+    assert len(matches) == 1, (page_path, "missing or duplicate pinned brand stylesheet")
+    assert hashlib.sha256(matches[0].read_bytes()).hexdigest() == expected_digest
 
 
 def main():
@@ -68,12 +102,14 @@ def main():
     )
     with urlopen(url, timeout=60) as response:
         css = response.read()
-    if hashlib.sha256(css).hexdigest() != brand["sha256"]:
-        raise ValueError("Shared brand checksum mismatch")
-    (source / "assets").mkdir()
-    (source / "assets/brand.css").write_bytes(css)
+    brand_asset = stage_brand(source, css, brand["sha256"])
+    identity["brand_asset"] = brand_asset
+    identity["brand_sha256"] = brand["sha256"]
     config = yaml.safe_load((ROOT / "tools/docs/mkdocs.yml").read_text())
     config.update(docs_dir="source", site_dir="html")
+    config["extra_css"] = [
+        brand_asset if p == "assets/brand.css" else p for p in config.get("extra_css", [])
+    ]
     config["extra"]["source_commit"] = sha
     (OUT / "mkdocs.yml").write_text(yaml.safe_dump(config, sort_keys=False))
     run(
@@ -88,7 +124,7 @@ def main():
     pages = {p.resolve(): Page(p.read_text()) for p in html.rglob("*.html")}
     for path, page in pages.items():
         content = path.read_text()
-        assert "assets/brand.css" in content, path
+        check_brand(html, path, page, brand_asset, brand["sha256"])
         assert 'data-md-color-primary="indigo"' not in content, path
         for href in page.links:
             link = urlsplit(href)
