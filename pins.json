@@ -211,24 +211,12 @@
       },
       "dest": ".cache/rl_gym"
     },
-    "worlds": {
-      "repository": "Living-Proof-Labs/livingproof-worlds",
-      "commit": "9b3e7119aa93a3370383227fb30bd39a9dd72b4b",
-      "files": {
-        "worlds/hallway-open/0.1.0/world.json": {
-          "sha256": "d60bb8aa6a72c8403fb6674cc9d803962c1484bc3e163527988e8c57ccec775c",
-          "bytes": 2380
-        }
-      },
-      "dest": ".cache/worlds",
-      "tag": "v1.1.0"
-    },
     "specs": {
       "repository": "Living-Proof-Labs/robot-capability-specs",
       "tag": "v2.0.2",
       "commit": "16524cbfeef18ff0454ebf125668b010d38a3993",
       "dest": ".cache/specs",
-      "note": "Schemas and the walk-hallway scenario at v2.0.2 (16524cb). Seeds, noise and required_passes are retired; a run is trials.count identical trials from the exact nominal pose.",
+      "note": "Robot and configuration schemas at v2.0.2 (16524cb).",
       "files": {
         "specs/robots/robot-profile.schema.json": {
           "sha256": "90a02a6b9371cd81b6a5e07cdafeda02727f36c5e17ba9777a9a09807a5d5226",
@@ -245,18 +233,6 @@
         "specs/robots/README.md": {
           "sha256": "2b9dcf4dfbebb46dd29b7f1c3ddcaec81b53fe4329dec440c2a45fd42116d839",
           "bytes": 7432
-        },
-        "specs/scenarios/walk-hallway/README.md": {
-          "sha256": "222c98327279ff83d66fd56b63a4121c14e5f424454816c9dc4390a23b4a0593",
-          "bytes": 7394
-        },
-        "specs/scenarios/walk-hallway/walk-hallway.feature": {
-          "sha256": "5566a50ef75b07bc6aad05b3e2a716fe73f0eb8a129cde233abb091f9205921d",
-          "bytes": 5265
-        },
-        "specs/scenarios/walk-hallway/compare-configurations.feature": {
-          "sha256": "2511191ffcb3a75084011ce0b6f3c99cd2f9d79b7fc7f795889f6ea0c7094c2a",
-          "bytes": 1760
         },
         "LICENSES/CC-BY-4.0.txt": {
           "sha256": "d557539df68e771cc1eedcc91d13f70fca930e508d11eedcafa4b15db49e3744",

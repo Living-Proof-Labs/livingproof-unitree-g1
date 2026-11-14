@@ -28,9 +28,9 @@ import numpy as np
 
 from lpl_g1 import ROOT
 from livingproof_sim_mujoco.pins import local
+from lpl_g1.adapter import ROBOT
 from lpl_g1.profiles import configuration, controller
 from lpl_g1.scene import build
-from livingproof_sim_mujoco.walk import initial_state
 
 DEPLOY_MUJOCO_YAML = "deploy/deploy_mujoco/configs/g1.yaml"
 
@@ -155,7 +155,7 @@ def _stock_start(root):
     model = scene.model
     data = mujoco.MjData(model)
     c = controller("stock", scene, root)
-    initial_state(model, data, c, "spawn-entrance")
+    ROBOT.initial_state(model, data, c, c.configuration["settings"]["initial_keyframe"])
     return scene, model, data, c
 
 
