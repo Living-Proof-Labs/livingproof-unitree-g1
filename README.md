@@ -42,3 +42,5 @@ task profile:measure                                     # width, length, mass f
 ```
 
 The adapter entry point is `lpl_g1.adapter:ROBOT` (`[tool.livingproof] adapter`).
+
+GitHub Actions runs that pytest command and ruff on `ubuntu-24.04` and `ubuntu-24.04-arm` for pull requests and pushes to `main`.
