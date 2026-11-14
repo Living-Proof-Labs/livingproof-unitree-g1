@@ -32,7 +32,7 @@ explicit = true
 [tool.uv.sources]
 torch = { index = "pytorch-cpu" }
 # Released simulator the adapter tests import. A tag, not a branch or an unreleased commit.
-livingproof-sim-mujoco = { git = "https://github.com/Living-Proof-Labs/livingproof-sim-mujoco.git", tag = "v2.0.3" }
+livingproof-sim-mujoco = { git = "https://github.com/Living-Proof-Labs/livingproof-sim-mujoco.git", tag = "v2.1.1" }
 
 [tool.pytest.ini_options]
 addopts = "-ra"
