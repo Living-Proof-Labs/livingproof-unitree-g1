@@ -1,9 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
 version: '3'
-vars:
-  VERIFIER_COMMIT:
-    sh: python3 -c 'import json; print(json.load(open("verification.lock.json"))["releases"]["verifier"]["commit"])'
-  CONFIGURATION: '{{.CONFIGURATION | default "playground"}}'
 env:
   MUJOCO_GL: osmesa
   PYOPENGL_PLATFORM: osmesa
@@ -11,21 +7,6 @@ tasks:
   reference:
     desc: Tick-by-tick match against play_g1_joystick.py (playground) and deploy_mujoco.py + g1.yaml (stock)
     cmds: [uv run python -m lpl_g1.reference]
-  stand:
-    desc: "Zero-command standing check: task stand CONFIGURATION=<name>"
-    cmds: ['uv run python -m livingproof_sim_mujoco.walk stand lpl_g1.adapter:ROBOT --configuration {{.CONFIGURATION}}']
-  repin:
-    desc: "Repin release refs to real tags: task repin -- runner=vX.Y.Z"
-    cmds: ['uvx --from git+https://github.com/Living-Proof-Labs/capability-verifier@{{.VERIFIER_COMMIT}} python -m capability_verifier.repin --root . {{.CLI_ARGS}}']
-  repin:check:
-    desc: Check every verification.lock.json ref is a released tag (none PENDING_RELEASE) and the runner is on its locked tag
-    cmds: ['uvx --from git+https://github.com/Living-Proof-Labs/capability-verifier@{{.VERIFIER_COMMIT}} python -m capability_verifier.repin --root . --check']
   profile:measure:
     desc: Measure robot width, length and mass from the pinned model (robot.json dimensions)
     cmds: [uv run python -m lpl_g1.measure]
-  profile:stand:
-    desc: Measure each configuration's nominal base height (zero-command stand)
-    cmds:
-      - for: [stock, playground]
-        task: stand
-        vars: {CONFIGURATION: '{{.ITEM}}'}

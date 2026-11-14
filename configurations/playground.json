@@ -3,7 +3,7 @@
   "format": "livingproof-configuration-profile/0.1",
   "robot": "unitree-g1",
   "name": "playground",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "summary": "Google DeepMind MuJoCo Playground G1 joystick controller (g1_policy.onnx) with the Playground's own position gains.",
   "controller": {
     "publisher": "Google DeepMind",
@@ -31,7 +31,7 @@
       "value": 0.73,
       "unit": "m",
       "source": "measured",
-      "ref": "task profile:stand"
+      "ref": "measured with task profile:stand in livingproof-unitree-g1 v1.0.4"
     },
     "fall_base_height": {
       "value": 0.5,

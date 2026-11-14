@@ -3,7 +3,7 @@
   "format": "livingproof-configuration-profile/0.1",
   "robot": "unitree-g1",
   "name": "stock",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "summary": "Unitree's published rl_gym G1 locomotion controller (motion.pt) with its published deploy gains.",
   "controller": {
     "publisher": "Unitree Robotics",
@@ -31,7 +31,7 @@
       "value": 0.78,
       "unit": "m",
       "source": "measured",
-      "ref": "task profile:stand"
+      "ref": "measured with task profile:stand in livingproof-unitree-g1 v1.0.4"
     },
     "fall_base_height": {
       "value": 0.5,
@@ -339,5 +339,5 @@
     },
     "actuation": "pd_torque: every 0.002 s physics step runs mj_step1, writes kp (q* - q) - kd dq from current state into motor actuators, then mj_step2 (unitree-foxglove-sdk MotorFirmwareBridge fix); identical for every configuration"
   },
-  "known_issues": "Stated by Rivet as expected to fail the hallway; the earlier fall in unitree-foxglove-sdk came from a torque computed once per command on stale sensors, which the in-step PD replaces."
+  "known_issues": "The earlier fall in unitree-foxglove-sdk came from a torque computed once per command on stale sensors, which the in-step PD replaces."
 }

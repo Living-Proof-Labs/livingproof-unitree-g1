@@ -8,12 +8,10 @@ import pytest
 import yaml
 
 from lpl_g1 import ROOT
-from lpl_g1 import scenario as sc
 from livingproof_sim_mujoco import pins
 from livingproof_sim_mujoco.pins import ChecksumError, sha256
 from lpl_g1.profiles import Unsupported, configuration, controller, robot, validate
-from lpl_g1.scene import SCENE, build, place_pose
-from livingproof_sim_mujoco.walk import initial_state
+from lpl_g1.scene import SCENE, build
 
 from lpl_g1.adapter import ROBOT
 
@@ -27,7 +25,6 @@ def fetch(root=ROOT, opener=None):
 
 
 CONFIGS = ["stock", "playground"]
-SCENARIO_README = "specs/scenarios/walk-hallway/README.md"
 
 
 def test_profiles_match_the_pinned_v2_0_2_schemas():
@@ -40,7 +37,7 @@ def test_profiles_match_the_pinned_v2_0_2_schemas():
     for name in CONFIGS:
         conf, digest = configuration(name)  # validates
         assert digest == sha256(ROOT / f"configurations/{name}.json")
-        assert conf["version"] == {"stock": "1.1.0", "playground": "1.0.0"}[name]
+        assert conf["version"] == {"stock": "1.1.1", "playground": "1.0.1"}[name]
     with pytest.raises(ValueError, match="robot does not match"):
         validate("robot", {**rob, "extra": 1})
 
@@ -80,31 +77,34 @@ def test_playground_gains_and_limits_equal_the_published_mjcf():
         assert s["gains"]["joint_damping"]["value"][j] == m.dof_damping[m.joint(j).dofadr[0]]
 
 
-def test_scenario_parameters_follow_the_pinned_acceptance_table():
-    text = local("specs", SCENARIO_README).read_text()
-    for row in (
-        "| `command_speed` | 0.5 m/s",
-        "Route length 5.5 m",
-        "| `trials` | 1 |",
-        "exact nominal pose at `spawn-entrance`",
-        "0.05 m humanoid",
-    ):
-        assert row in text, row
-    assert "required_passes" not in text and "seeds" not in text
-    p = sc.parameters("stock")
-    assert (p["time_limit"], p["exit_x"], p["wall_clearance"]) == (27.0, 3.0, 0.05)
-    assert p["lateral_limit"] == pytest.approx(0.75 - robot()["dimensions"]["width"]["value"] / 2)
-    plan = json.loads((ROOT / "verification.lock.json").read_text())["plan"]
-    # The specification default is 1. Published G1 reports use 3 identical trials.
-    assert plan == {"trials": {"count": 3}, "command_speed": 0.5}
-    assert "seeds" not in plan and "required_passes" not in plan
+def test_configurations_declare_locomotion_on_the_profile():
+    """Fall height and the nominal keyframe live on the configuration profile."""
+    scene = build()
+    keyframes = {scene.model.key(i).name for i in range(scene.model.nkey)}
+    for name, keyframe in (("stock", "home"), ("playground", "knees_bent")):
+        conf = configuration(name)[0]
+        height = conf["locomotion"]["fall_base_height"]
+        assert height == {
+            "value": 0.5,
+            "unit": "m",
+            "source": "chosen",
+            "reason": (
+                "About two-thirds of the standing pelvis height; "
+                "the same rule for both configurations."
+            ),
+        }
+        assert conf["settings"]["initial_keyframe"] == keyframe
+        assert keyframe in keyframes
+        nominal = conf["locomotion"]["nominal_base_height"]
+        assert nominal["unit"] == "m" and nominal["source"] == "measured"
+        assert nominal["value"] == {"stock": 0.78, "playground": 0.73}[name]
 
 
-def test_preconditions_give_unsupported_before_trials():
-    assert all(c["met"] for c in sc.preconditions("playground"))
-    pre = {c["name"]: c["met"] for c in sc.preconditions("vendor-x")}
-    assert pre["configuration_offered"] is False
-    with pytest.raises(Unsupported):
+def test_unknown_configuration_is_unsupported():
+    for name in CONFIGS:
+        conf, _digest = configuration(name)
+        assert conf["robot"] == robot()["id"]
+    with pytest.raises(Unsupported, match="configuration_offered"):
         configuration("vendor-x")
 
 
@@ -132,7 +132,7 @@ def test_scene_keeps_playground_solver_and_collisions():
     for attr in ("timestep", "iterations", "ls_iterations", "integrator", "disableflags"):
         assert getattr(m.opt, attr) == getattr(raw.opt, attr), attr
 
-    def pairs(model):  # by name: added world geoms shift ids
+    def pairs(model):
         return [
             (model.geom(a).name, model.geom(b).name, *model.pair_friction[i], *model.pair_solref[i])
             for i, (a, b) in enumerate(zip(model.pair_geom1, model.pair_geom2))
@@ -141,15 +141,20 @@ def test_scene_keeps_playground_solver_and_collisions():
     assert pairs(m) == pairs(raw)
     robot_geoms = [g for g in range(m.ngeom) if m.geom_bodyid[g] != 0]
     assert all(m.geom_contype[g] == 0 and m.geom_conaffinity[g] == 0 for g in robot_geoms)
-    assert scene.walls == ["wall-left", "wall-right"]
+    assert scene.walls == []
 
 
-def test_spawn_comes_from_the_world_place():
+def test_nominal_pose_comes_from_the_configuration_keyframe():
     scene = build()
-    world = {p["name"]: p for p in scene.world["places"]}
-    pos, yaw = place_pose(scene.model, "spawn-entrance")
-    np.testing.assert_allclose(pos, world["spawn-entrance"]["position"])
-    assert yaw == pytest.approx(np.radians(world["spawn-entrance"]["yaw_deg"]))
+    m = scene.model
+    for name in CONFIGS:
+        c = controller(name, scene)
+        key = c.configuration["settings"]["initial_keyframe"]
+        d = mujoco.MjData(m)
+        ROBOT.initial_state(m, d, c, key)
+        np.testing.assert_array_equal(d.qpos, c.initial_qpos)
+        np.testing.assert_allclose(d.qpos[0:2], 0.0)
+        np.testing.assert_allclose(d.qvel, 0.0)
 
 
 def test_nominal_pose_is_exact_and_start_offset_is_one_declared_change():
@@ -157,17 +162,16 @@ def test_nominal_pose_is_exact_and_start_offset_is_one_declared_change():
     m = scene.model
     for name in CONFIGS:
         c = controller(name, scene)
+        key = c.configuration["settings"]["initial_keyframe"]
         d = mujoco.MjData(m)
-        ROBOT.initial_state(m, d, c, "spawn-entrance")
+        ROBOT.initial_state(m, d, c, key)
         nominal = d.qpos.copy()
         np.testing.assert_allclose(d.qvel, 0.0)
         again = mujoco.MjData(m)
-        initial_state(m, again, c, "spawn-entrance")
+        ROBOT.initial_state(m, again, c, key)
         np.testing.assert_array_equal(again.qpos, nominal)
         shifted = mujoco.MjData(m)
-        ROBOT.initial_state(
-            m, shifted, c, "spawn-entrance", start_offset={"base_xy_m": [0.0, 0.05]}
-        )
+        ROBOT.initial_state(m, shifted, c, key, start_offset={"base_xy_m": [0.0, 0.05]})
         np.testing.assert_allclose(shifted.qpos[0], nominal[0])
         np.testing.assert_allclose(shifted.qpos[1], nominal[1] + 0.05)
         np.testing.assert_allclose(shifted.qpos[2:], nominal[2:])
@@ -183,7 +187,7 @@ def test_in_step_torque_pd_reproduces_the_published_position_actuators():
         scene = build(actuation)
         m, d = scene.model, mujoco.MjData(scene.model)
         c = controller("playground", scene, actuation=actuation)
-        initial_state(m, d, c, "spawn-entrance")
+        ROBOT.initial_state(m, d, c, c.configuration["settings"]["initial_keyframe"])
         OnnxPolicy(m, c.policy_path, c.spec).run(d, 2.0, [0.5, 0.0, 0.0])
         tracks.append(d.qpos.copy())
     np.testing.assert_allclose(tracks[0], tracks[1], atol=1e-6)
@@ -213,5 +217,5 @@ def test_position_initial_state_holds_the_default_pose():
     scene = build("position")
     m, d = scene.model, mujoco.MjData(scene.model)
     c = controller("playground", scene, actuation="position")
-    initial_state(m, d, c, "spawn-entrance")
+    ROBOT.initial_state(m, d, c, c.configuration["settings"]["initial_keyframe"])
     np.testing.assert_array_equal(d.ctrl, c.spec.default_pose)

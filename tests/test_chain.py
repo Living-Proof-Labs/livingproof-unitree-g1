@@ -1,98 +1,81 @@
 # SPDX-License-Identifier: Apache-2.0
-"""verification.lock.json, the thin verify workflow and the evidence-only boundary.
+"""The robot package publishes an adapter and configurations.
 
-repin and its tests live in capability-verifier (capability_verifier.repin)."""
+It does not grade, and it does not select a world or a scenario. The simulator
+dependency stays a released tag because the adapter tests import it.
+"""
 
-import json
+import importlib
 import re
 import tomllib
 from pathlib import Path
 
-import pytest
-
 import lpl_g1
-from lpl_g1 import ROOT, evidence
-from livingproof_sim_mujoco.pins import sha256
+from lpl_g1 import ROOT
 
-LOCK = json.loads((ROOT / "verification.lock.json").read_text())
-WORKFLOW = (ROOT / ".github/workflows/verify.yml").read_text()
-STEPS = "\n".join(line for line in WORKFLOW.splitlines() if not line.lstrip().startswith("#"))
+TAG = re.compile(r"v\d+\.\d+\.\d+")
 
 
-def test_lock_holds_plan_world_configurations_and_every_release_ref():
-    assert LOCK["format"] == "livingproof-verification-lock/1.0.0"
-    assert LOCK["plan"] == {"trials": {"count": 3}, "command_speed": 0.5}
-    assert "seeds" not in LOCK["plan"] and "required_passes" not in LOCK["plan"]
-    assert set(LOCK["releases"]) == {"specs", "runner", "verifier", "reporter"}
-    assert LOCK["releases"]["specs"]["repository"] == "Living-Proof-Labs/robot-capability-specs"
-    assert LOCK["world"]["id"] == "hallway-open" and LOCK["world"]["version"] == "0.1.0"
-    robot = json.loads((ROOT / "robot.json").read_text())
-    assert [c["name"] for c in LOCK["configurations"]] == [
-        c["name"] for c in robot["configurations"]
-    ]
-    for c in LOCK["configurations"]:
-        profile = json.loads((ROOT / c["path"]).read_text())
-        assert sha256(ROOT / c["path"]) == c["sha256"], c["name"]
-        assert profile["version"] == c["version"], c["name"]
+def test_adapter_is_the_published_contract():
+    ref = tomllib.loads((ROOT / "pyproject.toml").read_text())["tool"]["livingproof"]["adapter"]
+    module, name = ref.split(":")
+    adapter = getattr(importlib.import_module(module), name)
+    assert ref == "lpl_g1.adapter:ROBOT"
+    assert adapter.id == "unitree-g1" and adapter.root == ROOT
+    assert not hasattr(adapter, "world")
 
 
-def test_release_refs_come_from_the_lock():
-    """No pinned ref is written here: the lock is the source, and every other place that
-    names a release (verify.yml uses:, the pyproject runner tag, uv.lock) must agree with it."""
-    releases = LOCK["releases"]
-    for name, ref in releases.items():
-        assert re.fullmatch(r"v\d+\.\d+\.\d+", ref["tag"]), name
-        assert re.fullmatch(r"[0-9a-f]{40}", ref["commit"]), name
-    runner, verifier = releases["runner"], releases["verifier"]
-    assert f"walk-hallway.yml@{verifier['commit']}" in STEPS
+def test_simulator_dependency_is_a_released_tag():
+    """Adapter tests import livingproof-sim-mujoco. The pin is a release tag."""
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
-    assert pyproject["tool"]["uv"]["sources"]["livingproof-sim-mujoco"]["tag"] == runner["tag"]
+    source = pyproject["tool"]["uv"]["sources"]["livingproof-sim-mujoco"]
+    assert set(source) == {"git", "tag"}
+    assert TAG.fullmatch(source["tag"])
+    assert "rev" not in source and "branch" not in source
     uv_lock = (ROOT / "uv.lock").read_text()
-    assert f"livingproof-sim-mujoco.git?tag={runner['tag']}#{runner['commit']}" in uv_lock
-    assert re.fullmatch(r"sha256:[0-9a-f]{64}", releases["reporter"]["digest"])
-    assert evidence.pending(LOCK) == []
-
-
-def test_evidence_refuses_pending_refs(tmp_path, monkeypatch):
-    lock = json.loads(json.dumps(LOCK))
-    lock["releases"]["verifier"].update(tag="PENDING_RELEASE", commit="PENDING_RELEASE")
-    monkeypatch.setattr(evidence.generic, "load_lock", lambda *a, **k: lock)
-    with pytest.raises(SystemExit, match="PENDING_RELEASE refs \\(verifier\\)"):
-        evidence.evidence("stock", tmp_path / "out")
-    assert not (tmp_path / "out").exists()
-
-
-def test_verify_is_a_thin_call_to_the_verifier_workflow():
-    assert "Living-Proof-Labs/capability-verifier/.github/workflows/walk-hallway.yml@" in STEPS
-    assert "pull-requests: write" in STEPS
-    assert "--require-pass" not in STEPS
-    assert "runs-on:" not in STEPS  # every job lives in the reusable workflow
-    assert not (ROOT / "tools/repin.py").exists() and not (ROOT / "tools/pr_comment.py").exists()
-    assert not (ROOT / "src/lpl_g1/fetch.py").exists()  # livingproof_sim_mujoco.pins fetches
+    assert f"livingproof-sim-mujoco.git?tag={source['tag']}#" in uv_lock
 
 
 def test_robot_repository_does_no_grading():
     package = Path(lpl_g1.__file__).parent
     assert not (package / "clearance.py").exists() and not (package / "stats.py").exists()
-    from lpl_g1 import scenario
+    assert not (package / "scenario.py").exists() and not (package / "evidence.py").exists()
+    for path in package.glob("*.py"):
+        text = path.read_text()
+        assert "def evaluate" not in text and "def grade" not in text, path.name
 
-    for name in ("evaluate", "grade", "compare", "interval", "manifest"):
-        assert not hasattr(scenario, name), name
+
+def test_ci_runs_the_suite_on_pull_request():
+    """The suite runs in CI. Deleting the workflow or its pull_request trigger fails here."""
+    path = ROOT / ".github/workflows/test.yml"
+    text = path.read_text()
+    manual = (ROOT / ".github/workflows/manual.yml").read_text()
+    assert "\n  pull_request:\n" in text
+    assert "\n  push:\n    branches: [main]\n" in text
+    assert "permissions:\n  contents: read\n" in text
+    assert text.count("permissions:") == 1
+    assert "ubuntu-24.04" in text and "ubuntu-24.04-arm" in text
+    assert "MUJOCO_GL=osmesa PYOPENGL_PLATFORM=osmesa uv run pytest tests" in text
+    assert "uv run ruff check ." in text
+    assert "uv run ruff format --check ." in text
+    uses = re.findall(r"uses:\s*(\S+)", text)
+    manual_uses = set(re.findall(r"uses:\s*(\S+)", manual))
+    assert uses
+    assert set(uses) <= manual_uses
+    assert "actions/checkout@11d5960a326750d5838078e36cf38b85af677262" in uses
+    assert "actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065" in uses
+    assert "upload-artifact" not in text and "deploy-pages" not in text
+    assert "secrets." not in text
 
 
-def test_ci_runs_through_the_shared_workflow_and_the_adapter():
-    import importlib
-    import tomllib
-
-    ref = tomllib.loads((ROOT / "pyproject.toml").read_text())["tool"]["livingproof"]["adapter"]
-    module, name = ref.split(":")
-    adapter = getattr(importlib.import_module(module), name)
-    assert ref == "lpl_g1.adapter:ROBOT" and adapter.root == ROOT
+def test_workflows_and_tasks_do_not_run_verification():
     assert sorted(p.name for p in (ROOT / ".github/workflows").iterdir()) == [
         "manual.yml",
         "release.yml",
-        "verify.yml",
+        "test.yml",
     ]
+    assert not (ROOT / "tools/repin.py").exists() and not (ROOT / "tools/pr_comment.py").exists()
+    assert not (ROOT / "src/lpl_g1/fetch.py").exists()  # livingproof_sim_mujoco.pins fetches
     taskfile = (ROOT / "Taskfile.yml").read_text()
-    for generic in ("setup", "fetch", "check", "test", "evidence"):
+    for generic in ("setup", "fetch", "check", "test", "evidence", "repin", "stand"):
         assert f"\n  {generic}:\n" not in taskfile, generic

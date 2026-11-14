@@ -1,7 +1,7 @@
 [project]
 name = "livingproof-unitree-g1"
 version = "0.1.0"
-description = "Unitree G1 robot package: pinned model, published controllers and the hallway walk check"
+description = "Unitree G1 robot package: pinned model, published controllers and the MuJoCo adapter"
 requires-python = ">=3.11"
 license = "Apache-2.0"
 dependencies = [
@@ -31,8 +31,7 @@ explicit = true
 
 [tool.uv.sources]
 torch = { index = "pytorch-cpu" }
-# The runner, pinned to the release tag in verification.lock.json releases.runner (v2.0.3).
-# `task repin -- runner=vX.Y.Z` rewrites this line and the lock, then `uv lock`.
+# Released simulator the adapter tests import. A tag, not a branch or an unreleased commit.
 livingproof-sim-mujoco = { git = "https://github.com/Living-Proof-Labs/livingproof-sim-mujoco.git", tag = "v2.0.3" }
 
 [tool.pytest.ini_options]
@@ -42,5 +41,4 @@ addopts = "-ra"
 line-length = 100
 
 [tool.livingproof]
-# walk-hallway CI (capability-verifier walk-hallway.yml) runs livingproof_sim_mujoco.evidence on this
 adapter = "lpl_g1.adapter:ROBOT"
