@@ -11,7 +11,7 @@ collaboration-guidelines v9.5.4's release.config.mjs, semantic-release 25.0.9,
 release-notes-generator 14.1.1 and conventionalcommits 8.0.0. A fixed SHA-256 binds
 the reviewed notes. The semantic-release default-channel note is
 `{"channels":[null]}`. Existing matching state is left alone; mismatches stop.
-The script creates no tags, changes no ref and makes no PATCH/PUT/DELETE calls.
+The script creates no tags, never updates or deletes an existing ref, and makes no PATCH/PUT/DELETE calls.
 A normal GitHub release is created against the existing tag, with make_latest
 false so a newer release cannot be displaced by this historical repair.
 
