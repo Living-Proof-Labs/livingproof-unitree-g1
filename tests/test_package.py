@@ -27,10 +27,10 @@ def fetch(root=ROOT, opener=None):
 CONFIGS = ["stock", "playground"]
 
 
-def test_profiles_match_the_pinned_v2_0_2_schemas():
+def test_profiles_match_the_pinned_v2_3_0_schemas():
     pins = json.loads((ROOT / "pins.json").read_text())["groups"]
-    assert pins["specs"]["tag"] == "v2.0.2"
-    assert pins["specs"]["commit"].startswith("16524cb")
+    assert pins["specs"]["tag"] == "v2.3.0"
+    assert pins["specs"]["commit"] == "57317e617014a6df97bb7fba9d92a890af8d42e5"
     rob = robot()  # validates
     assert rob["id"] == "unitree-g1" and rob["default_configuration"] in CONFIGS
     assert [c["name"] for c in rob["configurations"]] == CONFIGS

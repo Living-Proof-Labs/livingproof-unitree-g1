@@ -3,7 +3,7 @@
 **Start here: documentation** — [manual source/preview](docs/index.md).
 The deployment workflow is proposed; the live manual is not yet verified.
 
-Living Proof Labs robot package for the Unitree G1 humanoid, in the [robot-capability-specs](https://github.com/Living-Proof-Labs/robot-capability-specs) v2.0.2 format (`specs/robots/`). It pins an official model and two published, ready-made walking controllers, and exposes them through a MuJoCo adapter.
+Living Proof Labs robot package for the Unitree G1 humanoid, in the [robot-capability-specs](https://github.com/Living-Proof-Labs/robot-capability-specs) v2.3.0 format (`specs/robots/`). It pins an official model and two published, ready-made walking controllers, and exposes them through a MuJoCo adapter.
 
 Living Proof Labs does not train controllers. A robot is checked only with a controller its maker or a maintained project has already published, run unchanged.
 
@@ -12,8 +12,9 @@ This package publishes the adapter and the configuration profiles. It does not s
 ## Files
 
 - `robot.json`: robot profile (`livingproof-robot-profile/0.1`). Covers the model source pinned by commit and sha256, the dimensions (each `measured`, `published` or `chosen`), the offered configurations, and `simulators: [mujoco]`.
-- `configurations/<name>.json`: configuration profiles (`livingproof-configuration-profile/0.1`). `stock` is version 1.1.0 and `playground` is version 1.0.0. Each holds its controller artifact, gains, limits and locomotion heights. Tests check the gains and limits against the pinned upstream files.
-- `pins.json`: every upstream file by repository, commit and sha256, including the robot and configuration schemas at v2.0.2 (`16524cb`). The pytest session (`livingproof_sim_mujoco.pins.fetch`) downloads them into `.cache/` and verifies each one. Nothing is vendored.
+- `manifest.json`: robot manifest (`livingproof-robot-manifest/0.1`). It cites the profile, the configuration profiles and every pinned asset, and lists the scenarios the adapter supports. It does not select a world or a scenario for a run.
+- `configurations/<name>.json`: configuration profiles (`livingproof-configuration-profile/0.1`). `stock` is version 1.1.1 and `playground` is version 1.0.1. Each holds its controller artifact, gains, limits and locomotion heights. Tests check the gains and limits against the pinned upstream files.
+- `pins.json`: every upstream file by repository, commit and sha256, including the robot, configuration and robot-manifest schemas at v2.3.0 (`57317e6`). The pytest session (`livingproof_sim_mujoco.pins.fetch`) downloads them into `.cache/` and verifies each one. Nothing is vendored.
 - `runner.json`: runner settings that are not part of the spec, marked `chosen`: the sample rate and the stand length. A trial this adapter starts itself uses the configuration's nominal pose. There is no seed and no noise.
 - `src/lpl_g1/`: the adapter, profile and schema validation, the robot scene, and the publisher reference check. Nothing here grades, and nothing here loads a world.
 - `pyproject.toml` pins `livingproof-sim-mujoco` at tag `v2.0.3`. The adapter tests import that release. The pin is a tag, not a branch.

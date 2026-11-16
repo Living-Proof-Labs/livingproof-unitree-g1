@@ -3,9 +3,9 @@
 
 tests/test_scenario_neutral.py catches the removed names and the exact keys. These
 checks catch selection that comes back under a neutral name: a key spelled
-``world_id`` or ``scenarios``, a pinned world file in another group, a scenario
-key on the adapter table, a Taskfile flag, or simulator scenario and world code
-imported from a new module.
+``world_id``, a ``scenarios`` key on any file other than the robot manifest, a
+pinned world file in another group, a scenario key on the adapter table, a
+Taskfile flag, or simulator scenario and world code imported from a new module.
 """
 
 import ast
@@ -57,6 +57,8 @@ def test_no_json_document_has_a_world_or_scenario_key_under_any_spelling():
         found: list[str] = []
         _keys(json.loads(path.read_text(encoding="utf-8")), found)
         bad = sorted({k for k in found if SELECTING_KEY.match(k)})
+        if path.relative_to(ROOT) == Path("manifest.json"):
+            bad = [key for key in bad if key != "scenarios"]
         if bad:
             offenders.append(f"{path.relative_to(ROOT)}: {bad}")
     assert offenders == []
@@ -124,7 +126,13 @@ def test_renovate_config_tracks_no_world_or_lock():
 
 def test_names_are_searched_in_every_text_file_not_only_listed_suffixes():
     """test_scenario_neutral.py reads only listed suffixes; a .sh or .json5 file is skipped."""
-    from test_scenario_neutral import ALLOW, LEGACY_EVIDENCE, NAMES, SKIP_DIRS
+    from test_scenario_neutral import (
+        ALLOW,
+        LEGACY_EVIDENCE,
+        NAMES,
+        SKIP_DIRS,
+        declaration_text,
+    )
 
     offenders = []
     for path in sorted(ROOT.rglob("*")):
@@ -137,6 +145,7 @@ def test_names_are_searched_in_every_text_file_not_only_listed_suffixes():
             text = path.read_text(encoding="utf-8")
         except UnicodeDecodeError:
             continue  # binary: npz traces, meshes
+        text = declaration_text(relative, text)
         if NAMES.search(path.name) or NAMES.search(text):
             offenders.append(str(relative))
     assert offenders == []

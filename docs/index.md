@@ -6,6 +6,7 @@ pinned model, the published controllers and the MuJoCo adapter. Start with the
 
 The package runs in MuJoCo. Living Proof Labs does not train the controllers.
 This package does not select a world or a scenario, and it does not grade.
+Its robot manifest declares which scenarios the adapter supports.
 
 - [Documentation home](https://docs.livingprooflabs.com/)
 - [Guide and quickstart](guide.md#tasks)
