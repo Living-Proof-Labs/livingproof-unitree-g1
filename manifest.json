@@ -1,5 +1,5 @@
 {
-  "$comment": "Robot manifest (livingproof-robot-manifest/0.1, robot-capability-specs v2.3.0). scenarios lists the scenario ids this adapter supports. source.commit is main 07ab4f6a9f880f1f61f1abf4104d64bc6f933263, the revision this declaration was written from. Profile, configuration and asset digests are the file bytes in this commit (the manifest cannot name its own commit). This file does not select a world or a scenario for a run.",
+  "$comment": "Robot manifest (livingproof-robot-manifest/0.1, robot-capability-specs v2.3.0). scenarios lists the scenario ids this adapter supports. source.commit is main 07ab4f6a9f880f1f61f1abf4104d64bc6f933263, the revision this declaration was written from. The cited profile, configuration and asset digests describe this committing tree, not the bytes at source.commit. A committed manifest cannot name its own commit. This file does not select a world or a scenario for a run.",
   "format": "livingproof-robot-manifest/0.1",
   "robot": "unitree-g1",
   "source": {
@@ -19,13 +19,13 @@
       "name": "stock",
       "version": "1.1.1",
       "path": "configurations/stock.json",
-      "sha256": "6f1739365557b988789e18a534b73e20beae6ed6083e3d65a0c80d23d3ed1f91"
+      "sha256": "8baf584eb025fa4408aad20a81521b73bc068a3a7e613dfeeb8f03d24eb02b5e"
     },
     {
       "name": "playground",
       "version": "1.0.1",
       "path": "configurations/playground.json",
-      "sha256": "c963f4c8f0a31ea3d11ac10e1425fe91a7e3721559f74c8b5983c3ea4b731bd9",
+      "sha256": "1fef76d2e5b6eb0ab7627d1f93333e8ca2ec01249a5b1d1f68876186f0657e89",
       "default": true
     }
   ],
