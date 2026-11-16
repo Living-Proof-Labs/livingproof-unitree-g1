@@ -15,8 +15,12 @@ import lpl_g1
 from lpl_g1 import ROOT
 from lpl_g1.adapter import G1
 
-# This file names the forbidden words. Nothing else may.
-ALLOW = {Path("tests/test_scenario_neutral.py")}
+# This file names the forbidden words. The supported-scenarios test names them too,
+# because it has to say which id is declared and which is not.
+ALLOW = {
+    Path("tests/test_scenario_neutral.py"),
+    Path("tests/test_supported_scenarios.py"),
+}
 LEGACY_EVIDENCE: set[Path] = set()
 NAMES = re.compile(r"hallway|walk-hallway|hallway-open|\bcorner\b", re.IGNORECASE)
 SELECTING_KEYS = {"world", "scenario", "worlds", "scenarios"}
