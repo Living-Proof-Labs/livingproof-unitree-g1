@@ -109,19 +109,24 @@ def test_unknown_configuration_is_unsupported():
 
 
 def test_fetch_rejects_a_download_with_the_wrong_checksum(tmp_path):
+    """A same-sized wrong body reaches ChecksumError. The pin's bytes come from that body."""
+    body = b"tampered"
+    entry = {"sha256": "0" * 64, "bytes": len(body)}
+    assert entry["bytes"] == len(body)
     pins = {
         "groups": {
             "g": {
                 "repository": "o/r",
                 "commit": "c",
                 "dest": "d",
-                "files": {"f.txt": {"sha256": "0" * 64}},
+                "files": {"f.txt": entry},
             }
         }
     }
     (tmp_path / "pins.json").write_text(json.dumps(pins))
-    with pytest.raises(ChecksumError, match="f.txt"):
-        fetch(tmp_path, opener=lambda url: io.BytesIO(b"tampered"))
+    with pytest.raises(ChecksumError, match="f.txt") as raised:
+        fetch(tmp_path, opener=lambda url: io.BytesIO(body))
+    assert type(raised.value) is ChecksumError
     assert not (tmp_path / "d" / "f.txt").exists()
 
 

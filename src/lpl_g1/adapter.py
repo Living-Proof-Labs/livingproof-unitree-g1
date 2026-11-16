@@ -44,7 +44,7 @@ class G1:
     def initial_state(self, model, data, ctrl, spawn: str, *, start_offset=None) -> None:
         """Exact nominal pose. ``start_offset`` is one declared comparison change.
 
-        Signature matches livingproof-sim-mujoco v2.0.3 ``Robot.initial_state``:
+        Signature matches livingproof-sim-mujoco v3.0.4 ``Robot.initial_state``:
         ``(model, data, ctrl, spawn, start_offset=None)``. There is no seed and no noise.
 
         When the compiled model already contains the simulator place site for ``spawn``,
