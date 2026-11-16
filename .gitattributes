@@ -1,0 +1,3 @@
+# setuptools-scm reads the release version from this file in a source archive
+# (GitHub release tarballs and git archive have no .git).
+.git_archival.txt  export-subst

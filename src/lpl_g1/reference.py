@@ -155,7 +155,7 @@ def _stock_start(root):
     model = scene.model
     data = mujoco.MjData(model)
     c = controller("stock", scene, root)
-    ROBOT.initial_state(model, data, c, c.configuration["settings"]["initial_keyframe"])
+    ROBOT.nominal_state(model, data, c)
     return scene, model, data, c
 
 

@@ -146,7 +146,7 @@ def test_scene_keeps_playground_solver_and_collisions():
     assert pairs(m) == pairs(raw)
     robot_geoms = [g for g in range(m.ngeom) if m.geom_bodyid[g] != 0]
     assert all(m.geom_contype[g] == 0 and m.geom_conaffinity[g] == 0 for g in robot_geoms)
-    assert scene.walls == []
+    assert not hasattr(scene, "walls")
 
 
 def test_nominal_pose_comes_from_the_configuration_keyframe():
@@ -154,9 +154,8 @@ def test_nominal_pose_comes_from_the_configuration_keyframe():
     m = scene.model
     for name in CONFIGS:
         c = controller(name, scene)
-        key = c.configuration["settings"]["initial_keyframe"]
         d = mujoco.MjData(m)
-        ROBOT.initial_state(m, d, c, key)
+        ROBOT.nominal_state(m, d, c)
         np.testing.assert_array_equal(d.qpos, c.initial_qpos)
         np.testing.assert_allclose(d.qpos[0:2], 0.0)
         np.testing.assert_allclose(d.qvel, 0.0)
@@ -167,16 +166,15 @@ def test_nominal_pose_is_exact_and_start_offset_is_one_declared_change():
     m = scene.model
     for name in CONFIGS:
         c = controller(name, scene)
-        key = c.configuration["settings"]["initial_keyframe"]
         d = mujoco.MjData(m)
-        ROBOT.initial_state(m, d, c, key)
+        ROBOT.nominal_state(m, d, c)
         nominal = d.qpos.copy()
         np.testing.assert_allclose(d.qvel, 0.0)
         again = mujoco.MjData(m)
-        ROBOT.initial_state(m, again, c, key)
+        ROBOT.nominal_state(m, again, c)
         np.testing.assert_array_equal(again.qpos, nominal)
         shifted = mujoco.MjData(m)
-        ROBOT.initial_state(m, shifted, c, key, start_offset={"base_xy_m": [0.0, 0.05]})
+        ROBOT.nominal_state(m, shifted, c, start_offset={"base_xy_m": [0.0, 0.05]})
         np.testing.assert_allclose(shifted.qpos[0], nominal[0])
         np.testing.assert_allclose(shifted.qpos[1], nominal[1] + 0.05)
         np.testing.assert_allclose(shifted.qpos[2:], nominal[2:])
@@ -192,7 +190,7 @@ def test_in_step_torque_pd_reproduces_the_published_position_actuators():
         scene = build(actuation)
         m, d = scene.model, mujoco.MjData(scene.model)
         c = controller("playground", scene, actuation=actuation)
-        ROBOT.initial_state(m, d, c, c.configuration["settings"]["initial_keyframe"])
+        ROBOT.nominal_state(m, d, c)
         OnnxPolicy(m, c.policy_path, c.spec).run(d, 2.0, [0.5, 0.0, 0.0])
         tracks.append(d.qpos.copy())
     np.testing.assert_allclose(tracks[0], tracks[1], atol=1e-6)
@@ -222,5 +220,5 @@ def test_position_initial_state_holds_the_default_pose():
     scene = build("position")
     m, d = scene.model, mujoco.MjData(scene.model)
     c = controller("playground", scene, actuation="position")
-    ROBOT.initial_state(m, d, c, c.configuration["settings"]["initial_keyframe"])
+    ROBOT.nominal_state(m, d, c)
     np.testing.assert_array_equal(d.ctrl, c.spec.default_pose)

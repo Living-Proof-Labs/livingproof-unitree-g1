@@ -2,7 +2,8 @@
 """The Playground G1 scene.
 
 The Playground MJCF is loaded unchanged: its solver options and its feet-only collision
-pairs are not touched. This package does not add a world. ``walls`` is empty.
+pairs are not touched. This package does not add a world: the simulator adds the
+world, its walls and its places.
 """
 
 from __future__ import annotations
@@ -24,7 +25,6 @@ class Scene:
     model: mujoco.MjModel
     position_kp: dict[str, float]  # published <position> gains, by actuator name
     ctrlrange: dict[str, tuple[float, float]]
-    walls: list[str]
 
 
 def build(actuation: str = "pd_torque", root: Path = ROOT) -> Scene:
@@ -36,4 +36,4 @@ def build(actuation: str = "pd_torque", root: Path = ROOT) -> Scene:
         generic.to_pd_torque(spec)
     elif actuation != "position":
         raise ValueError(f"unknown actuation {actuation!r}")
-    return Scene(spec.compile(), position_kp, ctrlrange, [])
+    return Scene(spec.compile(), position_kp, ctrlrange)
