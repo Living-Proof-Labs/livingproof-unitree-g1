@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Recover existing v2.1.4 publication
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: Create only the missing v2.1.4 channel note and GitHub release
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  preview:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - run: python3 tools/release/recover_v214.py
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RECOVERY_APPLY: 'false'
+  recover:
+    needs: preview
+    if: inputs.apply && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    concurrency:
+      group: shared-semantic-release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - run: python3 tools/release/recover_v214.py
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RECOVERY_APPLY: 'true'
