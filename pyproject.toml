@@ -1,6 +1,6 @@
 [project]
 name = "livingproof-unitree-g1"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Unitree G1 robot package: pinned model, published controllers and the MuJoCo adapter"
 requires-python = ">=3.11"
 license = "Apache-2.0"
@@ -19,8 +19,16 @@ dependencies = [
 dev = ["pytest==8.4.2", "ruff==0.14.2"]
 
 [build-system]
-requires = ["hatchling==1.27.0"]
+requires = ["hatchling==1.27.0", "hatch-vcs==0.5.0"]
 build-backend = "hatchling.build"
+
+# The version is the release tag (semantic-release tags v${version}); a commit after a
+# tag reports the next development version. A checkout with no tags reports 0.0.0.
+[tool.hatch.version]
+source = "vcs"
+[tool.hatch.version.raw-options]
+fallback_version = "0.0.0"
+local_scheme = "no-local-version"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/lpl_g1"]
@@ -29,6 +37,10 @@ packages = ["src/lpl_g1"]
 name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
 explicit = true
+
+[tool.uv]
+# Rebuild the editable install's metadata when the commit or the tags change.
+cache-keys = [{ file = "pyproject.toml" }, { git = { commit = true, tags = true } }]
 
 [tool.uv.sources]
 torch = { index = "pytorch-cpu" }
