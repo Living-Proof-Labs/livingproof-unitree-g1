@@ -17,7 +17,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
-          python-version: '3.12'
+          python-version: '3.12.16'
       - uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e
         with:
           version: '3.54.0'
