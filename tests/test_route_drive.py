@@ -11,6 +11,7 @@ scenarios, so it is on the scenario-neutral allowlist.
 
 import hashlib
 import json
+import platform
 from pathlib import Path
 
 import livingproof_sim_mujoco
@@ -40,6 +41,7 @@ def _world(world_id: str) -> Path:
 
 
 def _run(tmp_path: Path, scenario: str, world_id: str, name: str, **plan) -> tuple[dict, dict]:
+    tmp_path.mkdir(parents=True, exist_ok=True)
     manifest = json.loads((ROOT / "manifest.json").read_text())
     conf = next(c for c in manifest["configurations"] if c["name"] == name)
     lock = {
@@ -118,7 +120,28 @@ def test_walk_corner_is_completed_within_every_limit(tmp_path, name):
     assert obs["min_base_height"]["value"] >= conf["locomotion"]["fall_base_height"]["value"]
 
 
-@pytest.mark.parametrize("name", ["stock", "playground"])
+@pytest.mark.parametrize("name", sorted(PUBLISHED_HALLWAY))
+def test_walk_hallway_never_calls_drive_and_matches_an_adapter_without_it(
+    tmp_path, monkeypatch, name
+):
+    """walk-hallway sends its command, so drive is not called: the bytes are main's."""
+    adapter = type(ROBOT)
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("drive was called for a scenario with a command")
+
+    monkeypatch.setattr(adapter, "drive", forbidden)
+    with_drive, _ = _run(tmp_path / "with", "walk-hallway", "hallway-open", name, command_speed=0.5)
+    monkeypatch.delattr(adapter, "drive")
+    without, _ = _run(tmp_path / "without", "walk-hallway", "hallway-open", name, command_speed=0.5)
+    assert with_drive["trials"]["results"][0]["sha256"] == without["trials"]["results"][0]["sha256"]
+
+
+@pytest.mark.skipif(
+    platform.machine() not in ("x86_64", "AMD64"),
+    reason="the published run is x86_64; MuJoCo and torch rollouts differ by CPU architecture",
+)
+@pytest.mark.parametrize("name", sorted(PUBLISHED_HALLWAY))
 def test_walk_hallway_trials_are_byte_identical_to_the_published_run(tmp_path, name):
     run, _ = _run(tmp_path, "walk-hallway", "hallway-open", name, command_speed=0.5)
     assert run["trials"]["results"][0]["sha256"] == PUBLISHED_HALLWAY[name]
