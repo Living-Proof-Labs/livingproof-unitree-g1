@@ -62,11 +62,18 @@ def _wheel_version(source: Path, out: Path) -> str:
 
 @pytest.mark.skipif(shutil.which("uv") is None, reason="needs uv to build the wheel")
 def test_release_source_archive_builds_the_tag_version(tmp_path):
-    """The committed HEAD, tagged as the next release, then built like GitHub's tarball."""
+    """The committed tree, tagged as the next release, then built like GitHub's tarball.
+
+    The tag goes on a fresh empty commit, so it is the only tag there. Tagging HEAD
+    directly would add a second tag when HEAD is already a release (every release
+    commit on main), and the archive's ``describe-name`` would name the older tag.
+    """
     clone = tmp_path / "clone"
     _git(tmp_path, "clone", "-q", "--no-local", str(ROOT), str(clone))
     release = _next_release()
+    _git(clone, "commit", "-q", "--allow-empty", "-m", "release candidate")
     _git(clone, "tag", f"v{release}")
+    assert _git(clone, "tag", "--points-at", "HEAD").split() == [f"v{release}"]
     archive = tmp_path / "source.tar"
     _git(
         clone,
