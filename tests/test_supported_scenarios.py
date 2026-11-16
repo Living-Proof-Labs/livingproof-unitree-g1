@@ -19,7 +19,7 @@ ROBOT_MANIFEST_SCHEMA = "specs/robots/robot-manifest.schema.json"
 
 
 def test_robot_manifest_declares_exactly_walk_hallway():
-    """Exactly walk-hallway, valid against the pinned v2.3.0 manifest schema, and not walk-corner."""
+    """Exactly walk-hallway, valid against the v2.3.0 manifest schema, and not walk-corner."""
     path = ROOT / "manifest.json"
     manifest = json.loads(path.read_text()) if path.is_file() else {}
     assert manifest.get("scenarios") == ["walk-hallway"]
@@ -36,9 +36,15 @@ def test_robot_manifest_declares_exactly_walk_hallway():
 
     assert manifest["format"] == "livingproof-robot-manifest/0.1"
     assert manifest["robot"] == "unitree-g1"
+    assert manifest["source"]["repository"] == "Living-Proof-Labs/livingproof-unitree-g1"
+    assert manifest["adapter"] == {
+        "entry_point": "lpl_g1.adapter:ROBOT",
+        "package": "livingproof-unitree-g1",
+    }
     profile = ROOT / manifest["profile"]["path"]
     assert manifest["profile"]["sha256"] == sha256(profile)
-    offered = {item["name"]: item["path"] for item in json.loads(profile.read_text())["configurations"]}
+    profile_doc = json.loads(profile.read_text())
+    offered = {item["name"]: item["path"] for item in profile_doc["configurations"]}
     cited = {item["name"]: item for item in manifest["configurations"]}
     assert set(cited) == set(offered)
     for name, item in cited.items():
@@ -47,9 +53,7 @@ def test_robot_manifest_declares_exactly_walk_hallway():
         assert item["path"] == offered[name]
         assert item["version"] == document["version"]
         assert item["sha256"] == sha256(config)
-        assert item.get("default", False) == (
-            name == json.loads(profile.read_text())["default_configuration"]
-        )
+        assert item.get("default", False) == (name == profile_doc["default_configuration"])
     pins = json.loads((ROOT / "pins.json").read_text())["groups"]
     assets = [
         (

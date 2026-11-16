@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Robot and configuration profiles (robot-capability-specs v2.0.2), validated against
+"""Robot and configuration profiles (robot-capability-specs v2.3.0), validated against
 the pinned schemas, and the runner spec built from the selected configuration."""
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ SCHEMAS = {
     "robot": "specs/robots/robot-profile.schema.json",
     "configuration": "specs/robots/configuration-profile.schema.json",
     "manifest": "specs/robots/run-manifest.schema.json",
+    "robot_manifest": "specs/robots/robot-manifest.schema.json",
 }
 
 

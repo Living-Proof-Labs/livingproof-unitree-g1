@@ -25,8 +25,9 @@ pages, keyboard/mobile use, search, and the source SHA in `build.json`.
 
 ## Capability verification
 
-This repository publishes the adapter and the configuration profiles. It does
-not run a scenario or call the verifier workflow. Capability reports are
+This repository publishes the adapter, the configuration profiles and the robot
+manifest. It does not run a scenario or call the verifier workflow. Capability
+reports are
 published from
 [livingproof-verification](https://github.com/Living-Proof-Labs/livingproof-verification),
 which pins a released tag of this repository.

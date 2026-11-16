@@ -1,10 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """The robot package does not select a world or a scenario.
 
-Names of a scenario or a world may appear only on an allowlisted legacy evidence
-path. This repository has no recorded scenario evidence to read, so that
-allowlist is empty. This file is the only place those names are written, because
-the search has to name them.
+Names of a scenario or a world may appear only on an allowlisted path, or as the
+one scenario id the robot manifest declares. This repository has no recorded
+scenario evidence to read, so the legacy evidence allowlist is empty.
 """
 
 import json
@@ -22,8 +21,19 @@ ALLOW = {
     Path("tests/test_supported_scenarios.py"),
 }
 LEGACY_EVIDENCE: set[Path] = set()
+ROBOT_MANIFEST = Path("manifest.json")
+DECLARED_SCENARIO = "walk-hallway"
 NAMES = re.compile(r"hallway|walk-hallway|hallway-open|\bcorner\b", re.IGNORECASE)
 SELECTING_KEYS = {"world", "scenario", "worlds", "scenarios"}
+
+
+def declaration_text(relative: Path, text: str) -> str:
+    """Drop the one declared scenario id. Any other scenario or world name still matches."""
+    if relative == ROBOT_MANIFEST:
+        return text.replace(DECLARED_SCENARIO, "")
+    return text
+
+
 SKIP_DIRS = {
     ".git",
     ".cache",
@@ -75,7 +85,8 @@ def test_scenario_and_world_names_stay_on_legacy_evidence_paths():
         relative = path.relative_to(ROOT)
         if relative in ALLOW or relative in LEGACY_EVIDENCE:
             continue
-        if NAMES.search(path.name) or NAMES.search(path.read_text(encoding="utf-8")):
+        text = declaration_text(relative, path.read_text(encoding="utf-8"))
+        if NAMES.search(path.name) or NAMES.search(text):
             offenders.append(str(relative))
     assert offenders == []
 
@@ -85,6 +96,7 @@ def test_pins_runner_and_locks_do_not_select_a_world_or_scenario():
         ROOT / "pins.json",
         ROOT / "runner.json",
         ROOT / "robot.json",
+        ROOT / "manifest.json",
         *sorted((ROOT / "configurations").glob("*.json")),
         *sorted(ROOT.glob("*.lock.json")),
     ]
@@ -92,6 +104,8 @@ def test_pins_runner_and_locks_do_not_select_a_world_or_scenario():
     for path in documents:
         found: list[str] = []
         _selected_keys(json.loads(path.read_text(encoding="utf-8")), found)
+        if path.relative_to(ROOT) == ROBOT_MANIFEST:
+            found = [key for key in found if key != "scenarios"]
         assert found == [], f"{path.relative_to(ROOT)} has {found}"
 
 
