@@ -2,7 +2,7 @@
 """The robot package does not select a world or a scenario.
 
 Names of a scenario or a world may appear only on an allowlisted path, or as the
-one scenario id the robot manifest declares. This repository has no recorded
+scenario ids the robot manifest declares. This repository has no recorded
 scenario evidence to read, so the legacy evidence allowlist is empty.
 """
 
@@ -19,18 +19,21 @@ from lpl_g1.adapter import G1
 ALLOW = {
     Path("tests/test_scenario_neutral.py"),
     Path("tests/test_supported_scenarios.py"),
+    # Runs the declared scenarios end to end, so it names their worlds (#40, 11b).
+    Path("tests/test_route_drive.py"),
 }
 LEGACY_EVIDENCE: set[Path] = set()
 ROBOT_MANIFEST = Path("manifest.json")
-DECLARED_SCENARIO = "walk-hallway"
+DECLARED_SCENARIOS = ("walk-hallway", "walk-corner")
 NAMES = re.compile(r"hallway|walk-hallway|hallway-open|\bcorner\b", re.IGNORECASE)
 SELECTING_KEYS = {"world", "scenario", "worlds", "scenarios"}
 
 
 def declaration_text(relative: Path, text: str) -> str:
-    """Drop the one declared scenario id. Any other scenario or world name still matches."""
+    """Drop the declared scenario ids. Any other scenario or world name still matches."""
     if relative == ROBOT_MANIFEST:
-        return text.replace(DECLARED_SCENARIO, "")
+        for scenario in DECLARED_SCENARIOS:
+            text = text.replace(f'"{scenario}"', "")
     return text
 
 

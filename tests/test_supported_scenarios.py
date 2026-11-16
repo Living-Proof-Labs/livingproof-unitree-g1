@@ -2,8 +2,8 @@
 """The robot manifest declares the scenarios this adapter supports (spec v2.3.0).
 
 The declaration is a list of scenario ids on livingproof-robot-manifest/0.1.
-It is not a world or a scenario selected for a run. walk-corner stays off the
-list until this adapter implements the corner.
+It is not a world or a scenario selected for a run. walk-corner is on the list
+because the adapter drives it (``drive``, robot-capability-specs#40 step 11b).
 """
 
 import json
@@ -18,12 +18,11 @@ SPEC_COMMIT = "57317e617014a6df97bb7fba9d92a890af8d42e5"
 ROBOT_MANIFEST_SCHEMA = "specs/robots/robot-manifest.schema.json"
 
 
-def test_robot_manifest_declares_exactly_walk_hallway():
-    """Exactly walk-hallway, valid against the v2.3.0 manifest schema, and not walk-corner."""
+def test_robot_manifest_declares_walk_hallway_and_walk_corner():
+    """walk-hallway and walk-corner, valid against the v2.3.0 manifest schema."""
     path = ROOT / "manifest.json"
     manifest = json.loads(path.read_text()) if path.is_file() else {}
-    assert manifest.get("scenarios") == ["walk-hallway"]
-    assert "walk-corner" not in manifest["scenarios"]
+    assert manifest.get("scenarios") == ["walk-hallway", "walk-corner"]
 
     specs = json.loads((ROOT / "pins.json").read_text())["groups"]["specs"]
     assert specs["tag"] == SPEC_TAG
