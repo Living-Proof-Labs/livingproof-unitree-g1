@@ -17,7 +17,7 @@ This package publishes the adapter and the configuration profiles. It does not s
 - `pins.json`: every upstream file by repository, commit and sha256, including the robot, configuration and robot-manifest schemas at v2.3.0 (`57317e6`). The pytest session (`livingproof_sim_mujoco.pins.fetch`) downloads them into `.cache/` and verifies each one. Nothing is vendored.
 - `runner.json`: runner settings that are not part of the spec, marked `chosen`: the sample rate and the stand length. A trial this adapter starts itself uses the configuration's nominal pose. There is no seed and no noise.
 - `src/lpl_g1/`: the adapter, profile and schema validation, the robot scene, and the publisher reference check. Nothing here grades, and nothing here loads a world.
-- `pyproject.toml` pins `livingproof-sim-mujoco` at tag `v2.0.3`. The adapter tests import that release. The pin is a tag, not a branch.
+- `pyproject.toml` pins `livingproof-sim-mujoco` at tag `v3.0.4`. The adapter tests import that release. The pin is a tag, not a branch. v3 owns the world, and its `evidence` and `walk stand` commands take `--lock`. This package calls neither and does not add a world.
 
 | Configuration | Controller | Publisher | License |
 |---|---|---|---|
