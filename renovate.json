@@ -2,5 +2,14 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "description": "Use the released organization preset while preserving Python project dependency coverage.",
   "extends": ["github>Living-Proof-Labs/collaboration-guidelines:renovate-preset#v9.5.1"],
-  "enabledManagers": ["renovate-config", "github-actions", "dockerfile", "docker-compose", "npm", "pip-compile", "custom.regex", "pep621"]
+  "enabledManagers": ["renovate-config", "github-actions", "dockerfile", "docker-compose", "npm", "pip-compile", "custom.regex", "pep621"],
+  "packageRules": [
+    {
+      "description": "numpy 2.5+ requires Python >=3.12; keep the python_version < '3.12' line on 2.4.x.",
+      "matchManagers": ["pep621"],
+      "matchPackageNames": ["numpy"],
+      "matchCurrentValue": "/^==2\\.4\\./",
+      "allowedVersions": "<2.5"
+    }
+  ]
 }
