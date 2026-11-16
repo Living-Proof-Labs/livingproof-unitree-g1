@@ -42,14 +42,15 @@ class G1:
         return OnnxPolicy(model, ctrl.policy_path, ctrl.spec)
 
     def initial_state(self, model, data, ctrl, spawn: str, *, start_offset=None) -> None:
-        """Exact nominal pose. ``start_offset`` is one declared comparison change.
+        """Exact nominal pose at the place ``spawn``. ``start_offset`` is one declared change.
 
         Signature matches livingproof-sim-mujoco v3.0.4 ``Robot.initial_state``:
         ``(model, data, ctrl, spawn, start_offset=None)``. There is no seed and no noise.
 
-        When the compiled model already contains the simulator place site for ``spawn``,
-        that pose is used. This package does not add one. Otherwise the pose is the
-        controller's nominal ``initial_qpos``.
+        ``spawn`` is a place the simulator has already compiled into ``model``. This package
+        does not add one. A missing place raises ``KeyError``, as the Go1 and T1 adapters do:
+        the trial would otherwise start at the origin. Use ``nominal_state`` for the
+        controller's own nominal pose with no world.
         """
         from livingproof_sim_mujoco.scene import PLACE
         from livingproof_sim_mujoco.walk import initial_state
@@ -57,9 +58,16 @@ class G1:
         try:
             model.site(PLACE + spawn)
         except KeyError:
-            _nominal_state(model, data, ctrl, start_offset)
-            return
+            raise KeyError(missing_place(spawn)) from None
         initial_state(model, data, ctrl, spawn, start_offset=start_offset)
+
+    def nominal_state(self, model, data, ctrl, *, start_offset=None) -> None:
+        """The controller's nominal ``initial_qpos`` at the origin, with no world.
+
+        For the upstream reference loops and the package tests, which run the published
+        scene unchanged. Certification uses ``initial_state`` with a world place.
+        """
+        _nominal_state(model, data, ctrl, start_offset)
 
     def runner_settings(self) -> dict:
         from livingproof_sim_mujoco.walk import runner_settings
@@ -107,6 +115,18 @@ def _start_offset(start_offset) -> tuple[np.ndarray, float]:
             )
         dxy = np.array([float(raw[0]), float(raw[1])], dtype=float)
     return dxy, float(start_offset.get("base_yaw_rad", 0.0))
+
+
+def missing_place(spawn: str) -> str:
+    """The error for a start place that is not on the compiled model."""
+    from livingproof_sim_mujoco.scene import PLACE
+
+    return (
+        f"start place {spawn!r} is not on the compiled model (no site {PLACE + spawn!r}). "
+        "Compose the world first, so its places are compiled in, then call "
+        "initial_state(model, data, ctrl, 'spawn-entrance'). "
+        "For the controller's nominal pose with no world, call nominal_state(model, data, ctrl)."
+    )
 
 
 def _nominal_state(model, data, ctrl, start_offset) -> None:
