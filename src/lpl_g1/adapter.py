@@ -88,6 +88,16 @@ class G1:
     def environment(self, name: str) -> dict:
         return {}
 
+    def drive(self, name: str, model, ctrl, policy, places: dict):
+        """Steer the published controller along the scenario's route (``lpl_g1.route``).
+
+        livingproof-sim-mujoco v3.2.0 calls this for a scenario with no command that
+        ``manifest.json`` declares. ``step(data)`` sends one velocity command per step.
+        """
+        from lpl_g1.route import drive
+
+        return drive(self, name, model, ctrl, policy, places)
+
 
 def _start_offset(start_offset) -> tuple[np.ndarray, float]:
     """One declared xy/yaw change. Absent means the exact nominal pose."""
