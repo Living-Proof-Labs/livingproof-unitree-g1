@@ -1,0 +1,30 @@
+{
+  "world.json": {
+    "repository": "Living-Proof-Labs/livingproof-worlds",
+    "tag": "v1.4.0",
+    "commit": "971b39ee845a18c50da627a7410d22e3b98171f9",
+    "path": "worlds/hallway-corner/0.2.0/world.json",
+    "sha256": "f398f2705e630750f7b7ef3035ba4b5aed076de1f417165e58540e973150678e"
+  },
+  "release.json": {
+    "repository": "Living-Proof-Labs/livingproof-worlds",
+    "tag": "v1.4.0",
+    "commit": "971b39ee845a18c50da627a7410d22e3b98171f9",
+    "path": "worlds/hallway-corner/0.2.0/release.json",
+    "sha256": "035a000c5f9ae7007cda95ba55f03558115b6fa520900de9d5e063caf9c6572c"
+  },
+  "left.json": {
+    "repository": "Living-Proof-Labs/robot-capability-specs",
+    "tag": "v3.1.0",
+    "commit": "9ee830201f05943feb2b9787eea2ea747431d935",
+    "path": "specs/scenarios/walk-corner-left/parameters.json",
+    "sha256": "c9550c4e9462eb9b92e8efddd8b36a9d93d9977e111e9f3e8446927433dd2d4b"
+  },
+  "right.json": {
+    "repository": "Living-Proof-Labs/robot-capability-specs",
+    "tag": "v3.1.0",
+    "commit": "9ee830201f05943feb2b9787eea2ea747431d935",
+    "path": "specs/scenarios/walk-corner-right/parameters.json",
+    "sha256": "01e7666a3310f8d30c77ce9f5589ccb960fc495099df57e02be7724bbac880aa"
+  }
+}

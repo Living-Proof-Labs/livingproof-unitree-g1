@@ -1,0 +1,15 @@
+{
+  "id": "hallway-corner",
+  "content_version": "0.2.0",
+  "files": {
+    "README.md": "87f999ae66ccbaa84b413a7854c8c5bc9b614835295c171cf5b50777c4a179bc",
+    "forward-auto.svg": "eeebdc7635d3fb629154365473fd265786db2b97f089778ebf06fc919ee30813",
+    "forward-dark.svg": "2e9942733eba7f6f93224d84300a5752070df1e97fe6f0b89231f61186c0366f",
+    "forward-light.svg": "4e1b1646e23ef81697a00fbd8d91654eb84f33c104379662d0ff21809617ee24",
+    "notes.md": "b95f1947890b0bb8798bab7566a4e2f516eeb4a400da09ccfe530290babe9c64",
+    "reverse-auto.svg": "07f9f872888086600de3be5d40a8ac08c47337646c116b3047518eba206b34f9",
+    "reverse-dark.svg": "3c4eb3e0fc93aef8bc182328328166cd2b458ee1bb2372bd61a7510bde29daf4",
+    "reverse-light.svg": "bcf7476cc04155958a8013ca69bd2a854c666f423ccc99e3b4641a2387d9d9d5",
+    "world.json": "f398f2705e630750f7b7ef3035ba4b5aed076de1f417165e58540e973150678e"
+  }
+}
