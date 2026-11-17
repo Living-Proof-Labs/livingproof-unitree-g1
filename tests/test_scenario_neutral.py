@@ -17,6 +17,13 @@ from lpl_g1.adapter import G1
 # This file names the forbidden words. The supported-scenarios test names them too,
 # because it has to say which id is declared and which is not.
 ALLOW = {
+    # Exact released inputs for adapter-only regression tests; not runtime selection.
+    Path("tests/test_shared_traversals.py"),
+    Path("tests/data/reuse/world.json"),
+    Path("tests/data/reuse/release.json"),
+    Path("tests/data/reuse/left.json"),
+    Path("tests/data/reuse/right.json"),
+    Path("tests/data/reuse/sources.json"),
     Path("tests/test_scenario_neutral.py"),
     Path("tests/test_supported_scenarios.py"),
     # Runs the declared scenarios end to end, so it names their worlds (#40, 11b).
