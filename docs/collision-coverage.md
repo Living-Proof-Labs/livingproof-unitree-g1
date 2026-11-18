@@ -13,7 +13,7 @@ The audited model is `g1_mjx_feetonly.xml` from
 `fae73d06ae6957ab38e59c67cac5b3665db6de27cd741602dd93951e3f82b72c`.
 Mesh assets are pinned to Menagerie commit
 `1b86ece576591213e2b666ebf59508454200ca97`. The runner used for this audit is
-`livingproof-sim-mujoco` v3.4.3. These are audit inputs, not new integration pins.
+`livingproof-sim-mujoco` v3.6.0. These are audit inputs, not new integration pins.
 
 ## Three different meanings of coverage
 
@@ -22,8 +22,8 @@ Mesh assets are pinned to Menagerie commit
    with the floor, each hand with its thigh, and the two feet with each other.
 2. **Wall measurement:** the runner selects collision-class group 3, including
    shins that are not in active pairs. For a body with no such geometry, it
-   measures that body's visual geoms and records a `visual_fallback_bodies`
-   warning. Straight-hallway `Reach` and corner `RouteReach` use this same
+   measures that body's visual geoms, records `visual_fallback_bodies`, and logs
+   the fallback at INFO. Straight-hallway `Reach` and corner `RouteReach` use this same
    selection. A visual-only torso or shoulder is therefore **not invisible**
    to current wall-intrusion measurement.
 3. **Physical wall response:** the simulator's world walls are deliberately
@@ -31,16 +31,16 @@ Mesh assets are pinned to Menagerie commit
    Adding robot collision primitives alone would not change that.
 
 The original issue's assertion that only base drift could detect torso or arm
-intrusion predates the runner's visual fallback. It is not true of v3.4.3.
+intrusion predates the runner's visual fallback. It is not true of v3.6.0.
 A measured geometric intrusion is not proof of a simulated physical collision.
 
-## Body-by-body census and proposed exclusions
+## Body-by-body census and accepted exclusions
 
 `left/right` below lists each side explicitly as two bodies. Every one of the
 30 robot bodies has geometry selected for measurement. Eight have collision-class
 primitives; the other 22 use visual fallback.
 
-| Bodies | Measurement representation | Proposed disposition |
+| Bodies | Measurement representation | Accepted disposition |
 | --- | --- | --- |
 | `pelvis` | Three visual geoms | Keep visual fallback; retain publisher physics. |
 | `left_hip_pitch_link`, `right_hip_pitch_link` | Visual geoms | Keep visual fallback; retain publisher physics. |
@@ -59,7 +59,7 @@ primitives; the other 22 use visual fallback.
 | `left_wrist_pitch_link`, `right_wrist_pitch_link` | Visual geoms | Keep visual fallback; retain publisher physics. |
 | `left_wrist_yaw_link`, `right_wrist_yaw_link` | Hand capsule | Keep publisher primitive; wrist and hand visual meshes are excluded. |
 
-These are proposed exclusions from **new collision physics**, not from geometric
+These are accepted exclusions from **new collision physics**, not from geometric
 measurement. The reason is to preserve the pinned publisher's trained-model
 contact assumptions while explicitly measuring and reporting the fallback.
 The upstream files establish what is disabled; they do not establish the
@@ -76,15 +76,15 @@ publisher's reason for every individual omission.
 - Neither scenario tests realistic wall force, friction or recovery from contact.
   A change to that contract needs separate world/runner and robot configuration
   work, with review of controller assumptions.
-- The existing warning remains meaningful: measurement uses mixed approximate
+- The INFO fallback diagnostic remains meaningful: measurement uses mixed approximate
   collision primitives and visual meshes, not complete physical collision coverage.
 - There is no model change in this audit, hence no changed grades to compare.
   Seed-by-seed stock and Playground trials remain required if an approved follow-up
   changes geometry or selection. No new full hallway/corner runs are claimed here.
 
-**Recommendation for Aaron and Rivet:** accept the documented exclusions for the
-current measurement-only worlds, retain all thresholds and publisher geometry,
-and keep the regression tests proving fallback coverage. If full-envelope
+**Decision accepted by Rivet:** retain the documented exclusions for the
+current measurement-only worlds, all thresholds and publisher geometry,
+and the regression tests proving fallback coverage. If full-envelope
 coverage or physical-contact behavior is wanted, specify it separately rather
 than silently making the published controller's model different.
 
@@ -99,7 +99,10 @@ uv run python -m lpl_g1.collision_audit
 ```
 
 The census is machine-readable and lists each body's measurement mode, geometry
-count, direct contact eligibility, explicit pairs and fallback warnings. Tests
+count, direct contact eligibility, explicit pairs and fallback bodies. Its legacy
+`warnings` field is empty for the audited runner, which reports fallback at INFO. Tests
 check both configuration keyframes, straight/corner selection parity, a
 visual-only torso penetrating a measurement wall, and that the audit itself does
-not alter collision masks or pairs.
+not alter collision masks or pairs. Golden checks pin all five contact pairs,
+zero robot collision masks/margins/gaps and zero pair margins/gaps, and compare
+the documented body census with the compiled model.
