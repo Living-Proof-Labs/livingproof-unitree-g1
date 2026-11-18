@@ -34,6 +34,12 @@ The original issue's assertion that only base drift could detect torso or arm
 intrusion predates the runner's visual fallback. It is not true of v3.6.0.
 A measured geometric intrusion is not proof of a simulated physical collision.
 
+Both `left_foot_floor` and `right_foot_floor` compile to pair `friction =
+[0.6, 0.6, 0.005, 0.0001, 0.0001]` and `solref = [0.02, 1.0]`. The pinned
+XML explicitly sets the two sliding-friction components to `0.6`; the remaining
+friction components and `solref` use MuJoCo defaults. Regression tests pin all
+seven compiled components for each pair without changing the model.
+
 ## Body-by-body census and accepted exclusions
 
 `left/right` below lists each side explicitly as two bodies. Every one of the
