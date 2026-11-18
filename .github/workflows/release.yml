@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 name: Release
 on:
-  push:
+  workflow_run:
+    workflows: [Test]
+    types: [completed]
     branches: [main]
 permissions:
   contents: read
@@ -10,7 +12,13 @@ jobs:
     # semantic-release.yml@v3.0.0 analyzes conventional commits, then tags
     # v${version} and publishes a GitHub release. It does not write a version
     # into pyproject.toml.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_sha == github.sha
     permissions:
       contents: write
     uses: Living-Proof-Labs/collaboration-guidelines/.github/workflows/semantic-release.yml@v9.7.0
