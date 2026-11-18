@@ -1,9 +1,15 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Release publication must wait for a passing Test run on the same commit."""
+"""Releases only run after Test succeeds on the same main commit.
+
+Issue #69: an ungated push-triggered release.yml cuts a release even when
+Test fails on the same commit. Gating on workflow_run(workflows=[Test],
+types=[completed], branches=[main]) requires conclusion == 'success' and
+head_sha == github.sha so semantic-release never tags a failed, cancelled,
+skipped, PR, or newer unverified commit.
+"""
 
 from __future__ import annotations
 
-import copy
 import re
 from pathlib import Path
 
@@ -14,227 +20,288 @@ ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = ROOT / ".github" / "workflows"
 RELEASE = WORKFLOWS / "release.yml"
 TEST = WORKFLOWS / "test.yml"
-RELEASE_CALLEE_PREFIX = (
-    "Living-Proof-Labs/collaboration-guidelines/.github/workflows/semantic-release.yml@"
-)
 
-TOKEN_RE = re.compile(r"\s*(?:(\&\&|\|\||==|!=|[()!])|('(?:[^']|'')*')|([A-Za-z_][A-Za-z0-9_.-]*))")
+UNGATED_PUSH_RELEASE = """\
+# SPDX-License-Identifier: Apache-2.0
+name: Release
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    uses: Living-Proof-Labs/collaboration-guidelines/.github/workflows/semantic-release.yml@v9.6.10
+"""
+
+_TOKEN = re.compile(r"\s*(?:(&&|\|\||==|!=|[()!])|'([^']*)'|([A-Za-z_][A-Za-z0-9_.-]*))")
+_SHA_A = "a" * 40
+_SHA_B = "b" * 40
+_REPO = "Living-Proof-Labs/livingproof-unitree-g1"
 
 
-def _triggers(document: dict) -> dict:
-    # PyYAML implements YAML 1.1, which parses bare `on` as boolean True.
-    triggers = document.get("on") if "on" in document else document.get(True)
-    assert isinstance(triggers, dict), "workflow must declare a mapping of triggers"
-    return triggers
-
-
-def _eval_if(expr: str, context: dict[str, str]) -> bool:
-    """Evaluate a restricted GitHub Actions boolean `if:` expression."""
-    cleaned = expr.strip()
-    if cleaned.startswith("${{") and cleaned.endswith("}}"):
-        cleaned = cleaned[3:-2].strip()
-
+def _tokenize_expr(expr: str) -> list[tuple[str, str]]:
+    text = expr.strip()
+    if text.startswith("${{") and text.endswith("}}"):
+        text = text[3:-2].strip()
     tokens: list[tuple[str, str]] = []
     pos = 0
-    while pos < len(cleaned):
-        match = TOKEN_RE.match(cleaned, pos)
-        if not match or match.end() == pos:
-            raise AssertionError(f"unsupported token in if expression near: {cleaned[pos:]!r}")
+    while pos < len(text):
+        if text[pos].isspace():
+            pos += 1
+            continue
+        match = _TOKEN.match(text, pos)
+        if not match:
+            raise ValueError(f"unsupported token in if expression near {text[pos:]!r}")
         op, quoted, ident = match.groups()
         if op is not None:
             tokens.append(("OP", op))
         elif quoted is not None:
-            tokens.append(("STR", quoted[1:-1].replace("''", "'")))
+            tokens.append(("STR", quoted))
         else:
-            tokens.append(("IDENT", ident))
+            tokens.append(("ID", ident))
         pos = match.end()
+    return tokens
 
-    index = 0
+
+def _lookup(path: str, ctx: dict) -> object:
+    cur: object = ctx
+    for part in path.split("."):
+        if isinstance(cur, dict) and part in cur:
+            cur = cur[part]
+        else:
+            return ""
+    return cur
+
+
+def _eval_expr(expr: str, ctx: dict) -> bool:
+    """Evaluate a GitHub Actions boolean if-expression against a context dict."""
+    tokens = _tokenize_expr(expr)
+    pos = 0
 
     def peek() -> tuple[str, str] | None:
-        return tokens[index] if index < len(tokens) else None
+        return tokens[pos] if pos < len(tokens) else None
 
-    def consume(expected: tuple[str, str] | None = None) -> tuple[str, str]:
-        nonlocal index
-        tok = peek()
-        if tok is None or (expected is not None and tok != expected):
-            raise AssertionError(f"unexpected token {tok!r}, expected {expected!r}")
-        index += 1
+    def take() -> tuple[str, str]:
+        nonlocal pos
+        tok = tokens[pos]
+        pos += 1
         return tok
 
-    def parse_or() -> bool:
-        value = parse_and()
+    def parse_or() -> object:
+        val = parse_and()
         while peek() == ("OP", "||"):
-            consume()
+            take()
             rhs = parse_and()
-            value = value or rhs
-        return value
+            val = bool(val) or bool(rhs)
+        return val
 
-    def parse_and() -> bool:
-        value = parse_not()
+    def parse_and() -> object:
+        val = parse_eq()
         while peek() == ("OP", "&&"):
-            consume()
-            rhs = parse_not()
-            value = value and rhs
-        return value
+            take()
+            rhs = parse_eq()
+            val = bool(val) and bool(rhs)
+        return val
 
-    def parse_not() -> bool:
+    def parse_eq() -> object:
+        val = parse_unary()
+        while peek() in {("OP", "=="), ("OP", "!=")}:
+            _, op = take()
+            rhs = parse_unary()
+            val = (val == rhs) if op == "==" else (val != rhs)
+        return val
+
+    def parse_unary() -> object:
         if peek() == ("OP", "!"):
-            consume()
-            return not parse_not()
-        return parse_cmp()
+            take()
+            return not bool(parse_unary())
+        return parse_atom()
 
     def parse_atom() -> object:
         tok = peek()
-        if tok == ("OP", "("):
-            consume()
-            value = parse_or()
-            consume(("OP", ")"))
-            return value
-        kind, raw = consume()
+        if tok is None:
+            raise ValueError("unexpected end of expression")
+        kind, text = take()
+        if kind == "OP" and text == "(":
+            val = parse_or()
+            if take() != ("OP", ")"):
+                raise ValueError("unclosed parenthesis")
+            return val
         if kind == "STR":
-            return raw
-        if kind == "IDENT":
-            if peek() == ("OP", "("):
-                raise AssertionError(f"disallowed function call in release gate if: {raw}()")
-            if raw == "true":
+            return text
+        if kind == "ID":
+            if text == "true":
                 return True
-            if raw == "false":
+            if text == "false":
                 return False
-            if raw not in context:
-                raise AssertionError(f"unknown identifier in release gate if: {raw}")
-            return context[raw]
-        raise AssertionError(f"unexpected token {kind}:{raw!r}")
+            return _lookup(text, ctx)
+        raise ValueError(f"unexpected token {(kind, text)!r}")
 
-    def parse_cmp() -> bool:
-        lhs = parse_atom()
-        tok = peek()
-        if tok in (("OP", "=="), ("OP", "!=")):
-            _, op = consume()
-            rhs = parse_atom()
-            return (lhs == rhs) if op == "==" else (lhs != rhs)
-        return bool(lhs)
-
-    result = parse_or()
-    if index != len(tokens):
-        raise AssertionError(f"trailing tokens in if expression: {tokens[index:]}")
-    return bool(result)
+    result = bool(parse_or())
+    if pos != len(tokens):
+        raise ValueError(f"trailing tokens: {tokens[pos:]!r}")
+    return result
 
 
-def assert_release_gated_on_test(release_doc: dict, test_doc: dict) -> None:
-    triggers = _triggers(release_doc)
-    assert set(triggers) == {"push"}, set(triggers)
-    assert triggers["push"] == {"branches": ["main"]}
-    assert release_doc.get("permissions") == {"contents": "read"}
+def _context(
+    *,
+    event_name: str = "workflow_run",
+    trigger_event: str = "push",
+    head_branch: str = "main",
+    head_repo: str = _REPO,
+    conclusion: str = "success",
+    head_sha: str = _SHA_A,
+    sha: str = _SHA_A,
+) -> dict:
+    return {
+        "github": {
+            "event_name": event_name,
+            "ref": "refs/heads/main",
+            "sha": sha,
+            "repository": _REPO,
+            "event": {
+                "workflow_run": {
+                    "event": trigger_event,
+                    "head_branch": head_branch,
+                    "head_repository": {"full_name": head_repo},
+                    "conclusion": conclusion,
+                    "head_sha": head_sha,
+                }
+            },
+        }
+    }
 
-    test_triggers = _triggers(test_doc)
-    assert {"pull_request", "merge_group", "push", "workflow_call"} <= set(test_triggers)
-    test_jobs = test_doc.get("jobs") or {}
-    gate_job = test_jobs.get("verification-gate")
-    assert isinstance(gate_job, dict)
-    assert gate_job.get("needs") in ("test", ["test"])
-    assert gate_job.get("if") == "always()"
 
-    jobs = release_doc.get("jobs") or {}
-    assert isinstance(jobs, dict)
+def _evaluate_release_gate_cases(expr: str) -> list[str]:
+    problems: list[str] = []
+    if not _eval_expr(expr, _context()):
+        problems.append("release job rejects a passing main push Test run on matching SHA")
+    bad_cases = [
+        ("failed Test", _context(conclusion="failure")),
+        ("cancelled Test", _context(conclusion="cancelled")),
+        ("skipped Test", _context(conclusion="skipped")),
+        ("timed_out Test", _context(conclusion="timed_out")),
+        ("neutral Test", _context(conclusion="neutral")),
+        ("empty conclusion", _context(conclusion="")),
+        ("branch tip moved past head_sha", _context(head_sha=_SHA_A, sha=_SHA_B)),
+        ("pull_request event on branch named main", _context(trigger_event="pull_request")),
+        (
+            "merge_group event",
+            _context(trigger_event="merge_group", head_branch="gh-readonly-queue/main/1"),
+        ),
+        ("workflow_dispatch event", _context(trigger_event="workflow_dispatch")),
+        ("non-main head_branch", _context(head_branch="feature")),
+        ("fork head_repository", _context(head_repo="someone-else/livingproof-unitree-g1")),
+        ("direct push event_name", _context(event_name="push")),
+    ]
+    for label, ctx in bad_cases:
+        if _eval_expr(expr, ctx):
+            problems.append(f"release job would still run on {label}")
+    return problems
+
+
+def release_gate_problems(release_text: str, test_text: str) -> list[str]:
+    """Return problems if release.yml is not strictly gated on Test passing for the same SHA."""
+    problems: list[str] = []
+    release_doc = yaml.safe_load(release_text)
+    test_doc = yaml.safe_load(test_text)
+    if not isinstance(release_doc, dict) or not isinstance(test_doc, dict):
+        return ["workflow YAML did not parse as a mapping"]
+
+    test_name = test_doc.get("name")
+    if not isinstance(test_name, str) or not test_name:
+        problems.append("test.yml must define a non-empty workflow name")
+
+    trigger = release_doc.get("on", release_doc.get(True))
+    if not isinstance(trigger, dict):
+        return [*problems, "release.yml must define an `on:` mapping"]
+
+    if sorted(trigger.keys()) != ["workflow_run"]:
+        problems.append(
+            f"release.yml must trigger only on workflow_run, got {sorted(trigger.keys())}"
+        )
+    wf_run = trigger.get("workflow_run")
+    if not isinstance(wf_run, dict):
+        problems.append("release.yml workflow_run trigger must be a mapping")
+    else:
+        if wf_run.get("workflows") != [test_name]:
+            problems.append(
+                f"release.yml workflow_run.workflows must be [{test_name!r}], "
+                f"got {wf_run.get('workflows')!r}"
+            )
+        if wf_run.get("types") != ["completed"]:
+            problems.append(
+                f"release.yml workflow_run.types must be ['completed'], got {wf_run.get('types')!r}"
+            )
+        if wf_run.get("branches") != ["main"]:
+            problems.append(
+                f"release.yml workflow_run.branches must be ['main'], got {wf_run.get('branches')!r}"
+            )
+
+    jobs = release_doc.get("jobs")
+    if not isinstance(jobs, dict) or not jobs:
+        return [*problems, "release.yml must define jobs"]
 
     release_jobs = [
         (name, job)
         for name, job in jobs.items()
-        if isinstance(job, dict) and str(job.get("uses", "")).startswith(RELEASE_CALLEE_PREFIX)
+        if isinstance(job, dict) and "semantic-release.yml" in str(job.get("uses", ""))
     ]
-    assert len(release_jobs) == 1, f"expected one semantic-release job, found {release_jobs!r}"
-    release_name, release_job = release_jobs[0]
-    assert not release_job.get("continue-on-error", False)
+    if not release_jobs:
+        problems.append("release.yml must define a job calling semantic-release.yml")
 
-    test_callers = [
-        (name, job)
-        for name, job in jobs.items()
-        if isinstance(job, dict) and job.get("uses") == "./.github/workflows/test.yml"
-    ]
-    assert len(test_callers) == 1, f"expected one test.yml caller job, found {test_callers!r}"
-    test_job_name, test_job = test_callers[0]
-    assert not test_job.get("continue-on-error", False)
-    assert "if" not in test_job, "the gating test job must run unconditionally on push to main"
-    if "permissions" in test_job:
-        assert test_job["permissions"] == {"contents": "read"}
+    for name, job in release_jobs:
+        cond = job.get("if")
+        if not isinstance(cond, str) or not cond.strip():
+            problems.append(f"release job {name!r} is missing an if: gate")
+            continue
+        try:
+            problems.extend(_evaluate_release_gate_cases(cond))
+        except ValueError as exc:
+            problems.append(f"release job {name!r} has unparseable if: ({exc})")
 
-    needs = release_job.get("needs")
-    if isinstance(needs, str):
-        needs_list = [needs]
-    elif isinstance(needs, list):
-        needs_list = list(needs)
-    else:
-        needs_list = []
-    assert test_job_name in needs_list, (
-        f"release job {release_name!r} must depend on {test_job_name!r} via needs"
+    return problems
+
+
+def test_release_workflow_is_gated_on_passing_test_for_same_commit():
+    problems = release_gate_problems(
+        RELEASE.read_text(encoding="utf-8"),
+        TEST.read_text(encoding="utf-8"),
     )
-
-    if_expr = release_job.get("if")
-    assert isinstance(if_expr, str) and if_expr.strip(), "release job must declare an explicit if:"
-    lowered = if_expr.lower()
-    for banned in ("always(", "failure(", "cancelled("):
-        assert banned not in lowered, f"release job condition must not contain {banned}"
-
-    result_key = f"needs.{test_job_name}.result"
-    for result in ("success", "failure", "cancelled", "skipped", "neutral", "", "unknown"):
-        for event_name in ("push", "pull_request", "merge_group", "workflow_dispatch"):
-            for ref in ("refs/heads/main", "refs/heads/feature", "refs/tags/v1.0.0"):
-                allowed = _eval_if(
-                    if_expr,
-                    {
-                        result_key: result,
-                        "github.event_name": event_name,
-                        "github.ref": ref,
-                    },
-                )
-                expected = result == "success" and event_name == "push" and ref == "refs/heads/main"
-                assert allowed == expected, (
-                    f"if={if_expr!r} evaluated to {allowed!r} for "
-                    f"({result!r}, {event_name!r}, {ref!r}), expected {expected!r}"
-                )
+    assert problems == [], "\n".join(problems)
 
 
-def test_release_is_gated_on_test_for_the_same_commit() -> None:
-    release_doc = yaml.safe_load(RELEASE.read_text(encoding="utf-8"))
-    test_doc = yaml.safe_load(TEST.read_text(encoding="utf-8"))
-    assert_release_gated_on_test(release_doc, test_doc)
-
-
-def test_release_gate_rejects_ungated_and_permissive_mutations() -> None:
-    base_release = yaml.safe_load(RELEASE.read_text(encoding="utf-8"))
-    base_test = yaml.safe_load(TEST.read_text(encoding="utf-8"))
-
-    no_needs = copy.deepcopy(base_release)
-    no_needs["jobs"]["release"].pop("needs")
-    with pytest.raises(AssertionError):
-        assert_release_gated_on_test(no_needs, base_test)
-
-    no_result_check = copy.deepcopy(base_release)
-    no_result_check["jobs"]["release"]["if"] = (
-        "github.event_name == 'push' && github.ref == 'refs/heads/main'"
+def test_ungated_push_release_workflow_fails():
+    problems = release_gate_problems(
+        UNGATED_PUSH_RELEASE,
+        TEST.read_text(encoding="utf-8"),
     )
-    with pytest.raises(AssertionError):
-        assert_release_gated_on_test(no_result_check, base_test)
+    assert problems, "expected ungated push release workflow to fail"
 
-    always_runs = copy.deepcopy(base_release)
-    always_runs["jobs"]["release"]["if"] = (
-        "always() && github.event_name == 'push' && github.ref == 'refs/heads/main'"
-    )
-    with pytest.raises(AssertionError):
-        assert_release_gated_on_test(always_runs, base_test)
 
-    continue_on_error = copy.deepcopy(base_release)
-    continue_on_error["jobs"]["test"]["continue-on-error"] = True
-    with pytest.raises(AssertionError):
-        assert_release_gated_on_test(continue_on_error, base_test)
+@pytest.mark.parametrize(
+    "removed_clause",
+    [
+        "github.event.workflow_run.conclusion == 'success'",
+        "github.event.workflow_run.head_sha == github.sha",
+        "github.event.workflow_run.event == 'push'",
+        "github.event.workflow_run.head_branch == 'main'",
+        "github.event.workflow_run.head_repository.full_name == github.repository",
+    ],
+)
+def test_weakening_any_release_gate_clause_fails(removed_clause: str):
+    text = RELEASE.read_text(encoding="utf-8")
+    assert removed_clause in text
+    mutated = text.replace(removed_clause, "true")
+    problems = release_gate_problems(mutated, TEST.read_text(encoding="utf-8"))
+    assert problems, f"expected replacing {removed_clause!r} with 'true' to fail"
 
-    no_test_caller = copy.deepcopy(base_release)
-    no_test_caller["jobs"].pop("test")
-    with pytest.raises(AssertionError):
-        assert_release_gated_on_test(no_test_caller, base_test)
 
-    no_workflow_call = copy.deepcopy(base_test)
-    _triggers(no_workflow_call).pop("workflow_call")
-    with pytest.raises(AssertionError):
-        assert_release_gated_on_test(base_release, no_workflow_call)
+def test_renaming_test_workflow_without_updating_release_fails():
+    test_text = TEST.read_text(encoding="utf-8").replace("name: Test\n", "name: CI\n", 1)
+    problems = release_gate_problems(RELEASE.read_text(encoding="utf-8"), test_text)
+    assert any("workflow_run.workflows" in p for p in problems), problems
