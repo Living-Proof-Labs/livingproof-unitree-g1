@@ -79,6 +79,8 @@ def test_manifest_declares_walk_corner_and_the_adapter_drives():
     assert json.loads((ROOT / "manifest.json").read_text())["scenarios"] == [
         "walk-hallway",
         "walk-corner",
+        "walk-corner-left",
+        "walk-corner-right",
     ]
     assert callable(ROBOT.drive)
 

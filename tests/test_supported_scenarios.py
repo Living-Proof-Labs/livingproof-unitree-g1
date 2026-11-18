@@ -22,7 +22,12 @@ def test_robot_manifest_declares_walk_hallway_and_walk_corner():
     """walk-hallway and walk-corner, valid against the v2.3.0 manifest schema."""
     path = ROOT / "manifest.json"
     manifest = json.loads(path.read_text()) if path.is_file() else {}
-    assert manifest.get("scenarios") == ["walk-hallway", "walk-corner"]
+    assert manifest.get("scenarios") == [
+        "walk-hallway",
+        "walk-corner",
+        "walk-corner-left",
+        "walk-corner-right",
+    ]
 
     specs = json.loads((ROOT / "pins.json").read_text())["groups"]["specs"]
     assert specs["tag"] == SPEC_TAG
