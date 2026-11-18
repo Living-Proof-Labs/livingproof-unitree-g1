@@ -16,6 +16,7 @@ import livingproof_sim_mujoco
 import pytest
 from livingproof_sim_mujoco import evidence
 
+from declared_sources import parameters_source
 from lpl_g1 import ROOT
 
 PACKAGE = Path(livingproof_sim_mujoco.__file__).parent
@@ -56,6 +57,15 @@ def _commanded() -> tuple[str, dict]:
     return f"{scenario['id']}@{scenario['revision']}", document
 
 
+def _parameters_file(scenario: str) -> Path:
+    """The simulator's vendored copy of the scenario's parameter file (catalog, else frozen)."""
+    catalog = json.loads((PACKAGE / "scenarios" / "catalog.json").read_text())
+    entry = catalog.get(scenario)
+    if isinstance(entry, dict):
+        return PACKAGE / "scenarios" / entry["file"]
+    return PACKAGE / "compat" / "parameters.json"
+
+
 def _run(
     tmp_path: Path, scenario: str, document: dict, specs: dict, name: str, trials=None, **plan
 ):
@@ -79,6 +89,7 @@ def _run(
             }
         ],
         "releases": {"runner": _runner(), "specs": specs},
+        "sources": {"parameters": parameters_source(_parameters_file(scenario))},
     }
     tmp_path.mkdir(parents=True, exist_ok=True)
     path = tmp_path / "caller.lock.json"

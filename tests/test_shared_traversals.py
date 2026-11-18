@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """Adapter mechanics for the released shared corner, not a robot capability trial.
 
-The pinned simulator rejects world format 0.3. These tests deliberately exercise
-its lower-level composition primitive and the real adapter with a recording
-policy, without claiming that the evidence runner accepts this fixture. Body
+The pinned simulator accepts world format 0.3 (livingproof-sim-mujoco#89). These tests
+deliberately exercise its lower-level composition primitive and the real adapter with a
+recording policy, without claiming that the evidence runner accepts this fixture. Body
 states at the bend/finish are assigned test inputs, not a simulated trajectory.
 Support declarations must wait for both directions through the evidence runner.
 """
@@ -64,11 +64,10 @@ def test_unknown_id_refuses_and_historical_support_is_preserved():
     assert scenario.scenario_supported_precondition(ROOT, "walk-corner")["met"] is True
 
 
-def test_pinned_runner_refuses_new_world_format():
-    # Keep the integration dependency visible. Do not change the fixture format,
-    # patch the runner, or reinterpret a low-level composition check as support.
-    with pytest.raises(hallway.Unsupported, match="livingproof-world/0.3"):
-        hallway.supported(document("world.json"))
+def test_pinned_runner_accepts_new_world_format():
+    # The released simulator (livingproof-sim-mujoco#89) supports world format 0.3.
+    # This does not claim the evidence runner has run this fixture; see the module docstring.
+    assert hallway.supported(document("world.json")) is None
 
 
 class RecordingPolicy:
