@@ -17,6 +17,9 @@ from lpl_g1.adapter import G1
 # This file names the forbidden words. The supported-scenarios test names them too,
 # because it has to say which id is declared and which is not.
 ALLOW = {
+    # Audit existing measurement limits; neither path selects runtime inputs.
+    Path("docs/collision-coverage.md"),
+    Path("tests/test_collision_coverage.py"),
     # Exact released inputs for adapter-only regression tests; not runtime selection.
     Path("tests/test_shared_traversals.py"),
     Path("tests/data/reuse/world.json"),

@@ -12,6 +12,7 @@ Its robot manifest declares which scenarios the adapter supports.
 - [Guide and quickstart](guide.md#tasks)
 - [Generated contributor tasks](tasks.md)
 - [Verification and publishing](verification.md)
+- [Collision and wall-measurement coverage](collision-coverage.md)
 - [Contribute, help and licensing](contribute.md)
 - [Version and source](version.md)
 
