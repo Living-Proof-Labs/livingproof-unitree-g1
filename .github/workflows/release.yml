@@ -6,11 +6,16 @@ on:
 permissions:
   contents: read
 jobs:
+  test:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/test.yml
   release:
     # semantic-release.yml@v3.0.0 analyzes conventional commits, then tags
     # v${version} and publishes a GitHub release. It does not write a version
     # into pyproject.toml.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [test]
+    if: needs.test.result == 'success' && github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write
     uses: Living-Proof-Labs/collaboration-guidelines/.github/workflows/semantic-release.yml@v9.6.9
