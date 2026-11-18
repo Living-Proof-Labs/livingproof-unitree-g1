@@ -150,6 +150,21 @@ def test_publisher_contact_pairs_are_preserved():
     assert actual == expected
 
 
+@pytest.mark.parametrize("pair_name", ["left_foot_floor", "right_foot_floor"])
+@pytest.mark.parametrize(
+    ("parameter", "expected"),
+    [
+        ("friction", [0.6, 0.6, 0.005, 0.0001, 0.0001]),
+        ("solref", [0.02, 1.0]),
+    ],
+)
+def test_foot_floor_contact_parameters_match_documented_values(pair_name, parameter, expected):
+    # docs/collision-coverage.md records the complete compiled publisher values,
+    # including defaults omitted from the pinned XML.
+    pair = build().model.pair(pair_name)
+    np.testing.assert_array_equal(getattr(pair, parameter), expected)
+
+
 def test_robot_collision_masks_and_pair_thresholds_are_zero():
     model = build().model
     robot = model.geom_bodyid != 0
