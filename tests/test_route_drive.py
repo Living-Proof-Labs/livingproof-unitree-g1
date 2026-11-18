@@ -19,6 +19,7 @@ import numpy as np
 import pytest
 from livingproof_sim_mujoco import evidence
 
+from declared_sources import parameters_source
 from lpl_g1 import ROOT, route
 from lpl_g1.adapter import ROBOT
 
@@ -40,6 +41,13 @@ def _world(world_id: str) -> Path:
     return PACKAGE / f"worlds/{world_id}/0.1.0/world.json"
 
 
+def _parameters(scenario: str) -> Path:
+    """The simulator's vendored copy of the scenario's parameter file (specs v2.3.0 bytes)."""
+    if scenario == "walk-corner":
+        return PACKAGE / "scenarios/walk-corner/0.1.0/parameters.json"
+    return PACKAGE / "compat/parameters.json"
+
+
 def _run(tmp_path: Path, scenario: str, world_id: str, name: str, **plan) -> tuple[dict, dict]:
     tmp_path.mkdir(parents=True, exist_ok=True)
     manifest = json.loads((ROOT / "manifest.json").read_text())
@@ -57,6 +65,7 @@ def _run(tmp_path: Path, scenario: str, world_id: str, name: str, **plan) -> tup
             }
         ],
         "releases": {"runner": RUNNER, "specs": SPECS},
+        "sources": {"parameters": parameters_source(_parameters(scenario))},
     }
     path = tmp_path / "caller.lock.json"
     path.write_text(json.dumps(lock))
