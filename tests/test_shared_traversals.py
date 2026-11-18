@@ -5,10 +5,12 @@ The pinned simulator accepts world format 0.3 (livingproof-sim-mujoco#89). These
 deliberately exercise its lower-level composition primitive and the real adapter with a
 recording policy, without claiming that the evidence runner accepts this fixture. Body
 states at the bend/finish are assigned test inputs, not a simulated trajectory.
-Support declarations must wait for both directions through the evidence runner.
+The original-policy tests below exercise both directions through the evidence runner;
+recording-policy mechanics alone do not establish robot performance.
 """
 
 import hashlib
+import importlib.metadata
 import json
 import math
 from pathlib import Path
@@ -17,7 +19,7 @@ import mujoco
 import numpy as np
 import pytest
 from livingproof_scenario_parameters import crosses_exit, route_length
-from livingproof_sim_mujoco import compose, hallway, scenario
+from livingproof_sim_mujoco import compose, evidence, hallway, scenario
 
 from lpl_g1 import ROOT
 from lpl_g1.adapter import ROBOT
@@ -51,12 +53,11 @@ def test_released_fixture_bytes_and_provenance():
 
 
 @pytest.mark.parametrize("direction", ["left", "right"])
-def test_new_id_is_not_yet_declared(direction):
+def test_new_id_is_declared(direction):
     identity = document(direction + ".json")["scenario"]["id"]
     result = scenario.scenario_supported_precondition(ROOT, identity)
     assert result["name"] == "scenario_supported"
-    assert result["met"] is False
-    assert identity in result["detail"]
+    assert result["met"] is True
 
 
 def test_unknown_id_refuses_and_historical_support_is_preserved():
@@ -144,3 +145,50 @@ def test_actual_adapter_spawn_drive_and_finish(direction):
     assert not crosses_exit(after, before, points, places["exit"])
     assert route_length(world, parameters["places"]) == pytest.approx(5.5)
     assert len(policy.commands) == 3
+
+
+def run_original_policy_trial(direction, output):
+    """One original policy-controlled simulation, with explicit immutable fixture inputs."""
+    parameters = document(direction + ".json")
+    manifest = json.loads((ROOT / "manifest.json").read_text())
+    configuration = next(c for c in manifest["configurations"] if c["name"] == CONFIGURATION)
+    distribution = importlib.metadata.distribution("livingproof-sim-mujoco")
+    runner_commit = json.loads(distribution.read_text("direct_url.json"))["vcs_info"]["commit_id"]
+    sources = document("sources.json")
+    lock = {
+        "plan": {"trials": 1},
+        "scenario": parameters["scenario"]["id"] + "@" + parameters["scenario"]["revision"],
+        "world": {
+            "id": parameters["world"]["id"],
+            "version": parameters["world"]["content_version"],
+            "sha256": sources["world.json"]["sha256"],
+        },
+        "configurations": [{k: configuration[k] for k in ("name", "path", "version", "sha256")}],
+        "releases": {
+            "runner": {"tag": "v" + distribution.version, "commit": runner_commit},
+            "specs": {k: sources[direction + ".json"][k] for k in ("tag", "commit")},
+        },
+        "sources": {
+            kind: {
+                "path": (DATA / filename).relative_to(ROOT).as_posix(),
+                "sha256": sources[filename]["sha256"],
+            }
+            for kind, filename in (("world", "world.json"), ("parameters", direction + ".json"))
+        },
+    }
+    output.mkdir(parents=True, exist_ok=False)
+    lock_path = output / "caller.lock.json"
+    lock_path.write_text(json.dumps(lock, indent=2) + "\n")
+    return evidence.evidence(
+        "lpl_g1.adapter:ROBOT", CONFIGURATION, output / "evidence", lock=lock_path
+    )
+
+
+@pytest.mark.parametrize("direction", ["left", "right"])
+def test_original_policy_runs_each_declared_direction(tmp_path, direction):
+    run = run_original_policy_trial(direction, tmp_path / direction)
+    # Completing an original trial proves the adapter can attempt this scenario,
+    # not that its outcome is PASS under every evaluation criterion.
+    assert run["trials"]["count"] == 1
+    assert len(run["trials"]["results"]) == 1
+    assert (tmp_path / direction / "evidence/trials/trial-01.json").is_file()

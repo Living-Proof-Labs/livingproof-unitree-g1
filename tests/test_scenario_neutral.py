@@ -31,7 +31,7 @@ ALLOW = {
 }
 LEGACY_EVIDENCE: set[Path] = set()
 ROBOT_MANIFEST = Path("manifest.json")
-DECLARED_SCENARIOS = ("walk-hallway", "walk-corner")
+DECLARED_SCENARIOS = ("walk-hallway", "walk-corner", "walk-corner-left", "walk-corner-right")
 NAMES = re.compile(r"hallway|walk-hallway|hallway-open|\bcorner\b", re.IGNORECASE)
 SELECTING_KEYS = {"world", "scenario", "worlds", "scenarios"}
 

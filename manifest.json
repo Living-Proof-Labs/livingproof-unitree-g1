@@ -458,6 +458,8 @@
   "features": {},
   "scenarios": [
     "walk-hallway",
-    "walk-corner"
+    "walk-corner",
+    "walk-corner-left",
+    "walk-corner-right"
   ]
 }
