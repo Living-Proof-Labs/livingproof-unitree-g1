@@ -191,8 +191,8 @@ source = { git = "https://github.com/Living-Proof-Labs/robot-capability-specs?su
 
 [[package]]
 name = "livingproof-sim-mujoco"
-version = "3.4.0"
-source = { git = "https://github.com/Living-Proof-Labs/livingproof-sim-mujoco.git?tag=v3.4.0#94af10c7b8a8f8d72a8058360969b3aba48a946c" }
+version = "3.4.1"
+source = { git = "https://github.com/Living-Proof-Labs/livingproof-sim-mujoco.git?tag=v3.4.1#4e97b6c1ee72a9f6598a91d0a1476116dc17ae13" }
 dependencies = [
     { name = "jsonschema" },
     { name = "livingproof-common" },
@@ -238,7 +238,7 @@ dev = [
 requires-dist = [
     { name = "imageio", extras = ["ffmpeg"], specifier = "==2.38.1" },
     { name = "jsonschema", specifier = "==4.26.0" },
-    { name = "livingproof-sim-mujoco", extras = ["media", "torch"], git = "https://github.com/Living-Proof-Labs/livingproof-sim-mujoco.git?tag=v3.4.0" },
+    { name = "livingproof-sim-mujoco", extras = ["media", "torch"], git = "https://github.com/Living-Proof-Labs/livingproof-sim-mujoco.git?tag=v3.4.1" },
     { name = "mujoco", specifier = "==3.17.0" },
     { name = "numpy", marker = "python_full_version < '3.12'", specifier = "==2.4.6" },
     { name = "numpy", marker = "python_full_version >= '3.12'", specifier = "==2.5.4" },
