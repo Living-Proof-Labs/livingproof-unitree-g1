@@ -18,6 +18,7 @@ import livingproof_sim_mujoco
 import numpy as np
 import pytest
 from livingproof_sim_mujoco import evidence
+from source_bundle import bound_sources
 
 from lpl_g1 import ROOT, route
 from lpl_g1.adapter import ROBOT
@@ -59,9 +60,16 @@ def _run(tmp_path: Path, scenario: str, world_id: str, name: str, **plan) -> tup
         "releases": {"runner": RUNNER, "specs": SPECS},
     }
     path = tmp_path / "caller.lock.json"
-    path.write_text(json.dumps(lock))
-    out = tmp_path / "out"
-    run = evidence.evidence("lpl_g1.adapter:ROBOT", name, out, lock=path)
+    if scenario == "walk-hallway":
+        parameter_path = PACKAGE / "compat/parameters.json"
+    else:
+        catalog = json.loads((PACKAGE / "scenarios/catalog.json").read_text())
+        parameter_path = PACKAGE / "scenarios" / catalog[lock["scenario"]]["file"]
+    parameters = json.loads(parameter_path.read_text())
+    with bound_sources(ROOT, lock, _world(world_id), parameters):
+        path.write_text(json.dumps(lock))
+        out = tmp_path / "out"
+        run = evidence.evidence("lpl_g1.adapter:ROBOT", name, out, lock=path)
     observation = json.loads((out / "trials/trial-01.json").read_text())
     return run, observation
 

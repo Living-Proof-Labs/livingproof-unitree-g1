@@ -1,10 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """Adapter mechanics for the released shared corner, not a robot capability trial.
 
-The pinned simulator rejects world format 0.3. These tests deliberately exercise
-its lower-level composition primitive and the real adapter with a recording
-policy, without claiming that the evidence runner accepts this fixture. Body
-states at the bend/finish are assigned test inputs, not a simulated trajectory.
+The pinned simulator accepts world format 0.3. These tests validate the released
+fixture and exercise composition and the real adapter with a recording policy.
+Body states at the bend/finish are assigned test inputs, not a simulated trajectory.
 Support declarations must wait for both directions through the evidence runner.
 """
 
@@ -64,11 +63,25 @@ def test_unknown_id_refuses_and_historical_support_is_preserved():
     assert scenario.scenario_supported_precondition(ROOT, "walk-corner")["met"] is True
 
 
-def test_pinned_runner_refuses_new_world_format():
-    # Keep the integration dependency visible. Do not change the fixture format,
-    # patch the runner, or reinterpret a low-level composition check as support.
-    with pytest.raises(hallway.Unsupported, match="livingproof-world/0.3"):
-        hallway.supported(document("world.json"))
+def test_pinned_runner_accepts_shared_world_without_changing_it():
+    world = document("world.json")
+    original = json.dumps(world, sort_keys=True)
+    hallway.supported(world)
+    assert json.dumps(world, sort_keys=True) == original
+
+
+def test_pinned_runner_still_refuses_unknown_world_format():
+    world = document("world.json")
+    world["format"] = "livingproof-world/999"
+    with pytest.raises(hallway.Unsupported, match="livingproof-world/999"):
+        hallway.supported(world)
+
+
+def test_pinned_runner_refuses_unknown_traversal_place():
+    world = document("world.json")
+    world["traversals"][0]["start"] = "missing-start"
+    with pytest.raises(hallway.Unsupported, match="missing-start"):
+        hallway.supported(world)
 
 
 class RecordingPolicy:
@@ -103,7 +116,8 @@ def test_actual_adapter_spawn_drive_and_finish(direction):
     yaw = 0.0 if direction == "left" else -math.pi / 2
     start = [-2.5, 0.0] if direction == "left" else [0.0, 2.5]
     # Real pinned robot model/controller initial pose; no policy inference or
-    # integration trial. compose.place is below the runner's format gate.
+    # integration trial. The released world is validated by the pinned runner.
+    hallway.supported(world)
     model, data, ctrl, walls = compose.place(ROBOT, CONFIGURATION, world, places["start"]["name"])
     assert set(walls) == {g["name"] for g in world["geometry"] if g["role"] == "wall"}
     assert data.qpos[:2] == pytest.approx(start)
