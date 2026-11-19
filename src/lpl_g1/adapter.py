@@ -88,7 +88,80 @@ class G1:
     def environment(self, name: str) -> dict:
         return {}
 
-    def drive(self, name: str, model, ctrl, policy, places: dict):
+    def pose_provider(
+        self,
+        model,
+        name: str | None = None,
+        *,
+        source: str = "simulator-ideal",
+        frame_id: str = "world",
+        max_age_s: float | None = None,
+    ):
+        """MuJoCo pose provider for the robot base body."""
+        from lpl_g1.route import MujocoPoseProvider
+
+        body = self.base_body(name or "stock")
+        return MujocoPoseProvider(
+            model, body, source=source, frame_id=frame_id, max_age_s=max_age_s
+        )
+
+    def get_pose(
+        self,
+        model,
+        data,
+        name: str | None = None,
+        *,
+        frame_id: str = "world",
+        source: str = "simulator-ideal",
+    ):
+        """Read the current world pose sample ``(x, y, z, yaw, orientation)``."""
+        from lpl_g1.route import get_pose
+
+        return get_pose(
+            model, data, self.base_body(name or "stock"), frame_id=frame_id, source=source
+        )
+
+    def set_pose(
+        self,
+        model,
+        data,
+        *,
+        x: float,
+        y: float,
+        z: float | None = None,
+        yaw: float = 0.0,
+        quat=None,
+        zero_vel: bool = True,
+        forward: bool = True,
+        name: str | None = None,
+    ):
+        """Teleport the robot base body to ``(x, y, z, yaw/quat)`` and return its pose."""
+        from lpl_g1.route import set_pose
+
+        return set_pose(
+            model,
+            data,
+            self.base_body(name or "stock"),
+            x=x,
+            y=y,
+            z=z,
+            yaw=yaw,
+            quat=quat,
+            zero_vel=zero_vel,
+            forward=forward,
+        )
+
+    def drive(
+        self,
+        name: str,
+        model,
+        ctrl,
+        policy,
+        places: dict,
+        *,
+        route_control=None,
+        pose_provider=None,
+    ):
         """Steer the published controller along the scenario's route (``lpl_g1.route``).
 
         livingproof-sim-mujoco v3.2.0 calls this for a scenario with no command that
@@ -96,7 +169,16 @@ class G1:
         """
         from lpl_g1.route import drive
 
-        return drive(self, name, model, ctrl, policy, places)
+        return drive(
+            self,
+            name,
+            model,
+            ctrl,
+            policy,
+            places,
+            route_control=route_control,
+            pose_provider=pose_provider,
+        )
 
 
 def _start_offset(start_offset) -> tuple[np.ndarray, float]:
