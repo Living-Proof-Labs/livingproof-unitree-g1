@@ -22,3 +22,14 @@ jobs:
     permissions:
       contents: write
     uses: Living-Proof-Labs/collaboration-guidelines/.github/workflows/semantic-release.yml@v9.7.6
+  deploy-manual:
+    needs: release
+    if: needs.release.outputs.published == 'true'
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/manual.yml
+    with:
+      release_tag: ${{ needs.release.outputs.git-tag }}
+      release_version: ${{ needs.release.outputs.version }}
