@@ -13,6 +13,7 @@ from urllib.request import urlopen
 import yaml
 
 import sys
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from release_identity import identity as docs_identity, seal
 
@@ -108,8 +109,16 @@ def main():
         "releases recorded in the repository locks. See the guide for installation.\n"
     )
     with (source / "version.md").open("a") as version_page:
-        version_page.write((f"\n\n[Published source release: {label}]({release['release_url']})"
-                            if release["kind"] == "release" else "") + "\n\n```json\n" + json.dumps(release, indent=2) + "\n```\n")
+        version_page.write(
+            (
+                f"\n\n[Published source release: {label}]({release['release_url']})"
+                if release["kind"] == "release"
+                else ""
+            )
+            + "\n\n```json\n"
+            + json.dumps(release, indent=2)
+            + "\n```\n"
+        )
     brand = json.loads((ROOT / "docs-brand.lock.json").read_text())
     url = (
         f"https://raw.githubusercontent.com/{brand['repository']}/{brand['commit']}/{brand['path']}"
@@ -120,8 +129,12 @@ def main():
     identity["brand_asset"] = brand_asset
     identity["brand_sha256"] = brand["sha256"]
     config = yaml.safe_load((ROOT / "tools/docs/mkdocs.yml").read_text())
-    config.update(docs_dir="source", site_dir="html",
-                  repo_url=f"{REPO}/tree/{sha}", repo_name=f"Source · {label}")
+    config.update(
+        docs_dir="source",
+        site_dir="html",
+        repo_url=f"{REPO}/tree/{sha}",
+        repo_name=f"Source · {label}",
+    )
     config["extra_css"] = [
         brand_asset if p == "assets/brand.css" else p for p in config.get("extra_css", [])
     ]
