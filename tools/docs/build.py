@@ -12,6 +12,10 @@ from urllib.request import urlopen
 
 import yaml
 
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from release_identity import identity as docs_identity, seal
+
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "artifacts/manual"
 REPO = "https://github.com/Living-Proof-Labs/livingproof-unitree-g1"
@@ -71,12 +75,19 @@ def check_brand(html, page_path, page, asset, expected_digest):
 
 
 def main():
+    release = docs_identity(ROOT, REPO.removeprefix("https://github.com/"), cached=True)
+    label = release["label"]
     source = OUT / "source"
     shutil.rmtree(OUT, ignore_errors=True)
     shutil.copytree(ROOT / "docs", source)
     sha = run("git", "rev-parse", "HEAD")
     dirty = bool(run("git", "status", "--porcelain"))
     identity = {"repository": REPO, "commit": sha, "dirty": dirty, "kind": "development"}
+    identity.update(release)
+    identity["sources"] = {
+        p.relative_to(ROOT).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in [ROOT / "README.md", ROOT / "Taskfile.yml", *sorted((ROOT / "docs").rglob("*.md"))]
+    }
     guide = (ROOT / "README.md").read_text()
     guide = guide.replace("(docs/index.md)", "(index.md)")
     (source / "guide.md").write_text(guide)
@@ -87,7 +98,7 @@ def main():
     (source / "tasks.md").write_text(text)
     (source / "version.md").write_text(
         "# Version and source\n\n"
-        f"Docs: development · [{sha[:7]}]({REPO}/tree/{sha})"
+        f"Docs: {label} · [{sha[:7]}]({REPO}/tree/{sha})"
         f"{' (local modified preview)' if dirty else ''}.\n\n"
         f"Full source commit: `{sha}`.\n\n"
         "This manual describes this source tree, not an independently released package. "
@@ -96,6 +107,9 @@ def main():
         "Supported context: Python >=3.11, MuJoCo, and the model/controller and dependency "
         "releases recorded in the repository locks. See the guide for installation.\n"
     )
+    with (source / "version.md").open("a") as version_page:
+        version_page.write((f"\n\n[Published source release: {label}]({release['release_url']})"
+                            if release["kind"] == "release" else "") + "\n\n```json\n" + json.dumps(release, indent=2) + "\n```\n")
     brand = json.loads((ROOT / "docs-brand.lock.json").read_text())
     url = (
         f"https://raw.githubusercontent.com/{brand['repository']}/{brand['commit']}/{brand['path']}"
@@ -106,7 +120,8 @@ def main():
     identity["brand_asset"] = brand_asset
     identity["brand_sha256"] = brand["sha256"]
     config = yaml.safe_load((ROOT / "tools/docs/mkdocs.yml").read_text())
-    config.update(docs_dir="source", site_dir="html")
+    config.update(docs_dir="source", site_dir="html",
+                  repo_url=f"{REPO}/tree/{sha}", repo_name=f"Source · {label}")
     config["extra_css"] = [
         brand_asset if p == "assets/brand.css" else p for p in config.get("extra_css", [])
     ]
@@ -141,6 +156,7 @@ def main():
             assert target.exists(), (path, href)
             if link.fragment and target in pages:
                 assert unquote(link.fragment) in pages[target].ids, (path, href)
+    seal(html, release)
     print(
         f"PASS: {len(pages)} rendered pages, local links/fragments and brand checks; source {sha}; dirty={dirty}"
     )

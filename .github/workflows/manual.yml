@@ -21,6 +21,10 @@ permissions:
   contents: read
 jobs:
   build:
+    outputs:
+      run_attempt: ${{ steps.identity.outputs.run_attempt }}
+      pages-id: ${{ steps.pages-artifact.outputs.artifact-id }}
+      pages-digest: ${{ steps.pages-package.outputs.tar-sha256 }}
     runs-on: ubuntu-24.04
     env:
       RELEASE_TAG: ${{ inputs.release_tag }}
@@ -28,18 +32,16 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: ${{ inputs.release_tag || github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           fetch-tags: true
           persist-credentials: false
-      - name: Require release tag to match the exact verified commit
-        if: inputs.release_tag != ''
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          test "$(git rev-parse "${RELEASE_TAG}^{commit}")" = "$GITHUB_SHA"
+      - name: Verify published release and exact source identity
+        id: identity
+        env:
+          RELEASE_METADATA: ${{ runner.temp }}/unitree-release.json
+          GH_TOKEN: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && inputs.release_tag != '' && github.token || '' }}
+        run: python tools/docs/release_identity.py identity Living-Proof-Labs/livingproof-unitree-g1
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: '3.12.16'
@@ -50,18 +52,41 @@ jobs:
         run: python -m pip install -r tools/docs/requirements.lock
       - name: Test cache identity contract
         run: python -m unittest discover -s tools/docs/tests
+      - name: Test release identity and served bytes
+        run: python -m unittest discover -s tools/docs -p "test_*.py"
       - name: Build and check manual
         run: python tools/docs/build.py
+        env:
+          RELEASE_METADATA: ${{ runner.temp }}/unitree-release.json
+      - name: Verify tested served bytes and attempt
+        run: python tools/docs/release_identity.py verify artifacts/manual/html
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: repository-manual
+          name: repository-manual-${{ steps.identity.outputs.artifact_identity }}
           path: artifacts/manual/html
           retention-days: 14
           if-no-files-found: error
-      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa
+      - name: Package only the tested sealed HTML
+        id: pages-package
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && inputs.release_tag != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/docs/release_identity.py verify artifacts/manual/html
+          cd artifacts/manual/html
+          test -f index.html
+          test -z "$(find . ! -type f ! -type d -print -quit)"
+          tar --dereference --hard-dereference -cf "$RUNNER_TEMP/artifact.tar" .
+          digest=$(sha256sum "$RUNNER_TEMP/artifact.tar")
+          echo "tar-sha256=${digest%% *}" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        id: pages-artifact
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && inputs.release_tag != ''
         with:
-          path: artifacts/manual/html
+          name: github-pages-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/artifact.tar
+          retention-days: 1
+          if-no-files-found: error
   deploy:
     needs: build
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && inputs.release_tag != ''
@@ -77,6 +102,96 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - name: Reject retained build from an earlier attempt
+        env:
+          BUILD_ATTEMPT: ${{ needs.build.outputs.run_attempt }}
+        run: test "$BUILD_ATTEMPT" = "$GITHUB_RUN_ATTEMPT"
+      # Use the same-run Actions artifact client (like deploy-pages), not the REST index.
+      # An exact ID and name must both resolve to the sealed Pages tar before deploying.
+      - name: Require a valid Pages artifact ID
+        shell: bash
+        env:
+          UPLOADED_ID: ${{ needs.build.outputs.pages-id }}
+        run: |
+          [[ "$UPLOADED_ID" =~ ^[1-9][0-9]*$ ]]
+      - name: Read exact Pages artifact by ID
+        id: pages-id-first
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          artifact-ids: ${{ needs.build.outputs.pages-id }}
+          path: ${{ runner.temp }}/g1-pages-id-first
+      - name: Allow the ID lookup to settle
+        if: steps.pages-id-first.outcome == 'failure'
+        run: sleep 4
+      - name: Retry read by ID once
+        id: pages-id-retry
+        if: steps.pages-id-first.outcome == 'failure'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          artifact-ids: ${{ needs.build.outputs.pages-id }}
+          path: ${{ runner.temp }}/g1-pages-id-retry
+      - name: Read exact Pages artifact by name
+        id: pages-name-first
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: github-pages-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/g1-pages-name-first
+      - name: Allow the name lookup to settle
+        if: steps.pages-name-first.outcome == 'failure'
+        run: sleep 4
+      - name: Retry read by name once
+        id: pages-name-retry
+        if: steps.pages-name-first.outcome == 'failure'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: github-pages-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/g1-pages-name-retry
+      - name: Require matching ID and name readback of the exact tar
+        shell: bash
+        env:
+          EXPECTED_TAR: ${{ needs.build.outputs.pages-digest }}
+          EXPECTED_NAME: github-pages-${{ github.run_attempt }}
+          ID_READBACK: ${{ steps.pages-id-first.outcome == 'success' && steps.pages-id-first.outputs.download-path || steps.pages-id-retry.outputs.download-path }}
+          NAME_READBACK: ${{ steps.pages-name-first.outcome == 'success' && steps.pages-name-first.outputs.download-path || steps.pages-name-retry.outputs.download-path }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_TAR" =~ ^[0-9a-f]{64}$ ]]
+          test -n "$ID_READBACK"
+          test -n "$NAME_READBACK"
+          for path in "$ID_READBACK/$EXPECTED_NAME" "$NAME_READBACK"; do
+            test -f "$path/artifact.tar"
+            digest=$(sha256sum "$path/artifact.tar")
+            test "${digest%% *}" = "$EXPECTED_TAR"
+          done
+      - name: Recheck immutable published release inside deployment lock
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          if test "$GITHUB_EVENT_NAME" = workflow_dispatch && test -z "$RELEASE_VERSION"; then
+            RELEASE_VERSION=${RELEASE_TAG#v}
+          fi
+          test "$RELEASE_TAG" = "v$RELEASE_VERSION"
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" |
+            jq -e --arg tag "$RELEASE_TAG" '.tag_name == $tag and .draft == false and
+              .prerelease == false and .immutable == true and
+              (.published_at | type == "string" and length > 0)' >/dev/null
+          object=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq '.object | [.type,.sha] | @tsv')
+          for depth in 1 2 3 4; do
+            read -r kind sha <<< "$object"
+            [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+            if test "$kind" = commit; then break; fi
+            test "$kind" = tag
+            object=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$sha" --jq '.object | [.type,.sha] | @tsv')
+          done
+          test "$kind" = commit
+          test "$sha" = "$GITHUB_SHA"
       - name: Require current main inside deployment lock
         env:
           GH_TOKEN: ${{ github.token }}
@@ -84,5 +199,8 @@ jobs:
         run: |
           current=$(gh api repos/Living-Proof-Labs/livingproof-unitree-g1/git/ref/heads/main --jq .object.sha)
           test "$current" = "$CANDIDATE"
-      - id: deployment
+      - name: Deploy verified manual
+        id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e
+        with:
+          artifact_name: github-pages-${{ github.run_attempt }}
