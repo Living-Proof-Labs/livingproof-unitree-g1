@@ -258,6 +258,17 @@ def _workflow_texts():
     ]
 
 
+def _freshness_guard(document):
+    job = document["jobs"]["deploy"]
+    steps = job["steps"]
+    guards = [s for s in steps if s.get("name") == "Require current main inside deployment lock"]
+    (guard,) = guards
+    assert guard is steps[-2], "freshness must be the last check before deployment"
+    assert steps[-1]["uses"].startswith("actions/deploy-pages@")
+    assert job["concurrency"] == {"group": "g1-pages", "cancel-in-progress": False}
+    return guard
+
+
 def test_repository_workflows_authenticate_every_main_freshness_read():
     calls = []
     problems = []
@@ -275,7 +286,7 @@ def test_repository_workflows_authenticate_every_main_freshness_read():
         "id-token": "write",
     }
     steps = job["steps"]
-    guard = steps[0]
+    guard = _freshness_guard(document)
     assert guard["name"] == "Require current main inside deployment lock"
     assert guard["env"]["CANDIDATE"] == "${{ github.sha }}"
     assert guard["env"]["GH_TOKEN"] == "${{ github.token }}"
@@ -283,7 +294,11 @@ def test_repository_workflows_authenticate_every_main_freshness_read():
     assert FRESHNESS_API in guard["run"]
     assert 'test "$current" = "$CANDIDATE"' in guard["run"]
     assert guard.get("continue-on-error") in (None, False)
-    assert steps[1]["uses"].startswith("actions/deploy-pages@")
+    assert steps[-1]["uses"].startswith("actions/deploy-pages@")
+    assert any(
+        s.get("name") == "Require matching ID and name readback of the exact tar"
+        for s in steps[:-2]
+    )
 
 
 def test_unauthenticated_urllib_freshness_read_fails():
@@ -316,15 +331,16 @@ def test_contents_write_fails_even_when_the_read_sends_a_token():
 
 def test_removing_the_token_from_this_repository_fails():
     text = (WORKFLOWS / "manual.yml").read_text(encoding="utf-8")
-    stripped = text.replace("          GH_TOKEN: ${{ github.token }}\n", "", 1)
-    assert stripped != text
+    document = yaml.safe_load(text)
+    del _freshness_guard(document)["env"]["GH_TOKEN"]
+    stripped = yaml.safe_dump(document)
     problems = freshness_problems("manual.yml", stripped)
     assert any("without authentication" in problem for problem in problems), problems
 
 
 def _run_guard(tmp_path, *, remote_sha, http_status):
     document = yaml.safe_load((WORKFLOWS / "manual.yml").read_text(encoding="utf-8"))
-    guard = document["jobs"]["deploy"]["steps"][0]
+    guard = _freshness_guard(document)
     bindir = tmp_path / "bin"
     bindir.mkdir()
     fake = bindir / "gh"
@@ -380,3 +396,17 @@ def test_deploy_guard_still_aborts_when_main_moved_or_the_read_fails(
     if http_status != 200:
         assert "rate limit exceeded" in result.stderr
     assert "workflow-token" not in result.stderr
+
+
+@pytest.mark.parametrize("mutation", ["move-guard", "wrong-lock", "cancel-lock"])
+def test_freshness_guard_position_and_legacy_lock_cannot_regress(mutation):
+    document = yaml.safe_load((WORKFLOWS / "manual.yml").read_text(encoding="utf-8"))
+    job = document["jobs"]["deploy"]
+    if mutation == "move-guard":
+        job["steps"].insert(0, job["steps"].pop(-2))
+    elif mutation == "wrong-lock":
+        job["concurrency"]["group"] = "another-pages-lock"
+    else:
+        job["concurrency"]["cancel-in-progress"] = True
+    with pytest.raises(AssertionError):
+        _freshness_guard(document)

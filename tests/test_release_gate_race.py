@@ -11,8 +11,8 @@ newer tip releases everything since the last tag in one version.
 
 Offline:
 - every workflow parses and the Test workflow keeps the push-on-main run that the gate needs;
-- the privileged `workflow_run` workflow stays a single call to the shared release workflow
-  (no steps, no secrets, no cancel-in-progress, minimal permissions);
+- only the shared release call holds contents: write; the dependent manual delivery
+  has its own exact read/Pages permissions and cannot run inline repository code;
 - the real `if:` is evaluated over a timeline of pushes and Test completions.
 LIVINGPROOF_NETWORK=1 also checks the pinned shared workflow still checks out GITHUB_SHA
 and still refuses to run when HEAD is not GITHUB_SHA, which is what makes "release the
@@ -100,7 +100,7 @@ def gate_allows(expr: str, context: dict) -> bool:
 
 def release_if() -> str:
     jobs = _load(RELEASE)["jobs"]
-    (job,) = jobs.values()
+    job = jobs["release"]
     cond = job.get("if")
     assert isinstance(cond, str) and cond.strip(), "the release job needs an explicit if:"
     return cond
@@ -241,19 +241,73 @@ def test_test_workflow_still_runs_on_push_to_main() -> None:
     assert "workflow_run" not in triggers
 
 
-def test_release_workflow_is_one_privileged_call_and_runs_no_repository_code() -> None:
-    doc = _load(RELEASE)
+def _assert_release_job_boundaries(doc):
     assert doc["permissions"] == {"contents": "read"}
     jobs = doc["jobs"]
-    assert len(jobs) == 1, "a workflow_run workflow holds a write token: keep it to one job"
-    ((name, job),) = jobs.items()
-    assert "steps" not in job, "no steps: nothing from the repository runs with contents: write"
+    assert set(jobs) == {"release", "deploy-manual"}
+    job = jobs["release"]
+    assert "steps" not in job, "repository code must not run with contents: write"
     assert job["permissions"] == {"contents": "write"}
     assert job["uses"].startswith(f"{GUIDELINES}/.github/workflows/semantic-release.yml@v")
-    assert not {"secrets", "with", "env", "continue-on-error", "needs"} & set(job), name
-    # A new Test run must never cancel a release that is already tagging.
+    assert not {"secrets", "with", "env", "continue-on-error", "needs"} & set(job)
+    delivery = jobs["deploy-manual"]
+    assert delivery == {
+        "needs": "release",
+        "if": "needs.release.outputs.published == 'true'",
+        "permissions": {"contents": "read", "pages": "write", "id-token": "write"},
+        "uses": "./.github/workflows/manual.yml",
+        "with": {
+            "release_tag": "${{ needs.release.outputs.git-tag }}",
+            "release_version": "${{ needs.release.outputs.version }}",
+        },
+    }
     assert "concurrency" not in doc
+
+
+def test_release_workflow_keeps_one_contents_writer_and_gated_manual_delivery() -> None:
+    _assert_release_job_boundaries(_load(RELEASE))
     assert "cancel-in-progress" not in RELEASE.read_text(encoding="utf-8")
+    manual = _load(WORKFLOWS / "manual.yml")
+    assert manual["permissions"] == {"contents": "read"}
+    assert set(manual["jobs"]) == {"build", "deploy"}
+    assert "permissions" not in manual["jobs"]["build"]
+    deploy = manual["jobs"]["deploy"]
+    assert deploy["permissions"] == {"contents": "read", "pages": "write", "id-token": "write"}
+    for step in deploy["steps"]:
+        assert "checkout@" not in step.get("uses", "")
+        assert "tools/" not in step.get("run", "")
+    assert "GH_TOKEN" not in manual["jobs"]["build"].get("env", {})
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["extra-job", "writer-steps", "delivery-write", "ungated", "no-dependency", "delivery-steps"],
+)
+def test_release_job_boundary_mutations_are_rejected(mutation):
+    doc = _load(RELEASE)
+    if mutation == "extra-job":
+        doc["jobs"]["extra"] = {"run": "unreviewed"}
+    elif mutation == "writer-steps":
+        doc["jobs"]["release"]["steps"] = [{"run": "python untrusted.py"}]
+    elif mutation == "delivery-write":
+        doc["jobs"]["deploy-manual"]["permissions"]["contents"] = "write"
+    elif mutation == "ungated":
+        doc["jobs"]["deploy-manual"]["if"] = "always()"
+    elif mutation == "no-dependency":
+        del doc["jobs"]["deploy-manual"]["needs"]
+    else:
+        doc["jobs"]["deploy-manual"]["steps"] = [{"run": "python untrusted.py"}]
+    with pytest.raises(AssertionError):
+        _assert_release_job_boundaries(doc)
+
+
+@pytest.mark.parametrize("published", ["true", "false", "", "missing", "failed", "skipped"])
+def test_manual_delivery_requires_successfully_published_release(published):
+    job = _load(RELEASE)["jobs"]["deploy-manual"]
+    assert job["needs"] == "release"
+    assert gate_allows(
+        job["if"], {"needs": {"release": {"outputs": {"published": published}}}}
+    ) == (published == "true")
 
 
 def test_release_workflow_listens_only_to_the_test_workflow_by_its_exact_name() -> None:
