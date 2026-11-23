@@ -9,7 +9,7 @@ dependencies = [
     "numpy==2.4.6; python_version < '3.12'",
     "numpy==2.5.4; python_version >= '3.12'",
     "pyyaml==6.0.3",
-    "imageio[ffmpeg]==2.38.1",
+    "imageio[ffmpeg]==2.38.2",
     "livingproof-sim-mujoco[torch,media]",
     "jsonschema==4.26.0",
     "referencing==0.37.0",
@@ -47,7 +47,7 @@ cache-keys = [{ file = "pyproject.toml" }, { git = { commit = true, tags = true 
 [tool.uv.sources]
 torch = { index = "pytorch-cpu" }
 # Released simulator the adapter tests import. A tag, not a branch or an unreleased commit.
-livingproof-sim-mujoco = { git = "https://github.com/Living-Proof-Labs/livingproof-sim-mujoco.git", tag = "v3.9.6" }
+livingproof-sim-mujoco = { git = "https://github.com/Living-Proof-Labs/livingproof-sim-mujoco.git", tag = "v3.9.7" }
 
 [tool.pytest.ini_options]
 addopts = "-ra"
