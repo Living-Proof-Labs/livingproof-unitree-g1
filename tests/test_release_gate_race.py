@@ -19,7 +19,7 @@ and that plan.mjs still refuses when HEAD is not the expected commit. run.mjs pa
 GITHUB_SHA as that expected commit for a non-candidate release. A fetch there may
 update only the same tag ref and must throw unless that tag is the planned commit,
 which is what makes "release the commit that Test passed on" hold without an
-explicit `ref:`.
+explicit `ref:`. The same three checks run offline on fixture copies of those scripts.
 """
 
 from __future__ import annotations
@@ -427,19 +427,45 @@ def _plan_version_body(source: str) -> str:
     return code[open_brace + 1 : close_brace]
 
 
-def _assert_plan_refuses_head_mismatch(source: str) -> None:
-    """The refusal and `commit !== expected` have to be the same check inside planVersion.
+def _assignment_reads_rev_parse_head(text: str, expr: str, end: int, seen: set[str]) -> bool:
+    """True when expr is git rev-parse HEAD, or a name still bound to that call."""
+    expr = _strip_wrapping_parens(expr)
+    if re.search(r"""['"]rev-parse['"]\s*,\s*['"]HEAD['"]""", expr):
+        return True
+    if re.fullmatch(r"[A-Za-z_$][\w$]*", expr) and expr not in seen:
+        bound = _initializer_before(text, expr, end)
+        if bound is None:
+            return False
+        return _assignment_reads_rev_parse_head(text, bound, end, seen | {expr})
+    return False
 
-    Whitespace and either quote style may change. A copied message with no comparison,
-    or a comparison that does not throw this refusal, does not count.
+
+def _assert_plan_refuses_head_mismatch(source: str) -> None:
+    """planVersion throws the HEAD refusal when rev-parsed HEAD !== expected.
+
+    The name in the comparison has to be the one still bound to ``git rev-parse HEAD``.
+    ``commit = expected`` keeps the inequality and the message, and does not count.
+    Whitespace and either quote style may change.
     """
     body = re.sub(r"\s+", " ", _plan_version_body(source))
-    comparison = r"(?:\bcommit\s*!==\s*expected\b|\bexpected\s*!==\s*commit\b)"
-    refusal = r"throw\s+new\s+Error\(\s*(['\"`])" + re.escape(_HEAD_MISMATCH) + r"\1\s*,?\s*\)"
-    assert re.search(comparison + r".{0,600}?" + refusal, body), (
+    refusal = (
+        r"throw\s+new\s+Error\(\s*(?P<q>['\"`])" + re.escape(_HEAD_MISMATCH) + r"(?P=q)\s*,?\s*\)"
+    )
+    guard = re.search(
+        r"(?:\b(?P<left>[A-Za-z_$][\w$]*)\s*!==\s*expected\b"
+        r"|\bexpected\s*!==\s*(?P<right>[A-Za-z_$][\w$]*))"
+        r".{0,600}?" + refusal,
+        body,
+    )
+    assert guard, (
         "plan.mjs planVersion must refuse when the checked-out commit is not "
         f"expected ({_HEAD_MISMATCH})"
     )
+    name = guard.group("left") or guard.group("right")
+    bound = _initializer_before(body, name, guard.start())
+    assert bound is not None and _assignment_reads_rev_parse_head(
+        body, bound, guard.start(), set()
+    ), "plan.mjs must compare expected with the commit from git rev-parse HEAD"
 
 
 def _index_in_string(source: str, index: int) -> bool:
@@ -572,7 +598,7 @@ def _false_candidate_branch(expr: str) -> str | None:
         return None
     cond, yes, no = (part.strip() for part in parts)
     condition = re.sub(r"\s+", "", _strip_wrapping_parens(cond))
-    if condition == "candidate":
+    if condition in {"candidate", "candidate===true", "candidate==true"}:
         return no
     if condition in {
         "!candidate",
@@ -585,6 +611,32 @@ def _false_candidate_branch(expr: str) -> str | None:
     return None
 
 
+def _if_else_non_candidate(source: str, name: str, pos: int) -> str | None:
+    """Value assigned to name when candidate is false, for an if/else before pos.
+
+    A ternary is handled separately. This is the if/else form: the non-candidate arm
+    may itself be a name bound to process.env.GITHUB_SHA.
+    """
+    ident = re.escape(name)
+    binding = rf"(?:(?:const|let|var)\s+)?{ident}\s*=\s*"
+    forms = (
+        (
+            rf"if\s*\(\s*candidate\s*\)\s*\{{?\s*{binding}(?P<yes>[^;]+);\s*\}}?\s*"
+            rf"else\s*\{{?\s*{binding}(?P<no>[^;]+);"
+        ),
+        (
+            rf"if\s*\(\s*!\s*candidate\s*\)\s*\{{?\s*{binding}(?P<no>[^;]+);\s*\}}?\s*"
+            rf"else\s*\{{?\s*{binding}(?P<yes>[^;]+);"
+        ),
+    )
+    found: str | None = None
+    window = source[:pos]
+    for pattern in forms:
+        for match in re.finditer(pattern, window):
+            found = match.group("no").strip()
+    return found
+
+
 def _resolve_non_candidate(source: str, expr: str, pos: int, seen: set[str]) -> str | None:
     text = _strip_wrapping_parens(expr)
     if not text:
@@ -595,6 +647,9 @@ def _resolve_non_candidate(source: str, expr: str, pos: int, seen: set[str]) -> 
     if re.fullmatch(r"[A-Za-z_$][\w$]*", text):
         if text in seen:
             return None
+        branched = _if_else_non_candidate(source, text, pos)
+        if branched is not None:
+            return _resolve_non_candidate(source, branched, pos, seen | {text})
         bound = _initializer_before(source, text, pos)
         if bound is None:
             return None
@@ -819,6 +874,7 @@ def _assert_fetches_do_not_retarget_release(source: str) -> None:
     for shell in re.finditer(r"\bgit\s+fetch\b([^\n;]*)", code):
         _assert_tag_only_fetch(["fetch", *shell.group(1).split()])
         fetches.append(shell.start())
+    assert fetches, "run.mjs must fetch one tag ref and throw unless that tag is plan.commit"
     for index in fetches:
         name, _open, _close, params, body = _enclosing_function(functions, index)
         assert len(params) >= 2 and re.fullmatch(r"[A-Za-z_$][\w$]*", params[1]), params
@@ -869,3 +925,175 @@ def test_pinned_shared_workflow_releases_exactly_github_sha() -> None:
     runner = _raw(".github/actions/semantic-release/run.mjs")
     _assert_run_passes_github_sha_for_non_candidate(runner)
     _assert_fetches_do_not_retarget_release(runner)
+
+
+# Minimal shape of the pinned scripts. Offline tests patch `_raw` with these, so CI
+# exercises the guards without LIVINGPROOF_NETWORK. The network test above uses the pin.
+_PLAN_FIXTURE = """\
+export async function planVersion(cwd, expected) {
+  const git = (...args) => execFileSync('git', args, { cwd, encoding: 'utf8' });
+  const commit = git('rev-parse', 'HEAD').trim();
+  if (!shaPattern.test(expected ?? '') || commit !== expected) {
+    throw new Error('Checked-out HEAD must match the triggering commit');
+  }
+  return { commit };
+}
+"""
+
+_RUN_FIXTURE = """\
+import { planVersion } from './plan.mjs';
+
+export async function verifyTagMatchesCommit(gitTag, expectedCommit, { cwd } = {}) {
+  execFileSync('git', ['fetch', 'origin', `refs/tags/${gitTag}:refs/tags/${gitTag}`, '--force'], {
+    cwd,
+    encoding: 'utf8',
+  });
+  const taggedCommit = execFileSync('git', ['rev-parse', '--verify', `refs/tags/${gitTag}^{commit}`], {
+    cwd,
+    encoding: 'utf8',
+  }).trim();
+  if (taggedCommit !== expectedCommit) {
+    throw new Error(`Tag ${gitTag} resolves to ${taggedCommit}, expected ${expectedCommit}`);
+  }
+}
+
+export async function run() {
+  const candidate = process.env.RELEASE_CANDIDATE === 'true';
+  const expected = candidate ? process.env.RELEASE_EXPECTED_COMMIT : process.env.GITHUB_SHA;
+  const plan = await planVersion(cwd, expected, { candidate });
+  const head = plan.commit;
+  verifyTagMatchesCommit(plan.gitTag, head, { cwd });
+}
+"""
+
+_RUN_SHA_IN_VARIABLE = _RUN_FIXTURE.replace(
+    "  const expected = candidate ? process.env.RELEASE_EXPECTED_COMMIT : process.env.GITHUB_SHA;\n",
+    "  const triggering = process.env.GITHUB_SHA;\n"
+    "  const expected = candidate ? process.env.RELEASE_EXPECTED_COMMIT : triggering;\n",
+)
+
+_RUN_SHA_IN_ELSE = _RUN_FIXTURE.replace(
+    "  const expected = candidate ? process.env.RELEASE_EXPECTED_COMMIT : process.env.GITHUB_SHA;\n",
+    "  let expected;\n"
+    "  if (!candidate) {\n"
+    "    expected = process.env.GITHUB_SHA;\n"
+    "  } else {\n"
+    "    expected = process.env.RELEASE_EXPECTED_COMMIT;\n"
+    "  }\n",
+)
+
+
+def _check_release_scripts(plan: str, runner: str) -> None:
+    _assert_plan_refuses_head_mismatch(plan)
+    _assert_run_passes_github_sha_for_non_candidate(runner)
+    _assert_fetches_do_not_retarget_release(runner)
+
+
+def _patch_release_scripts(monkeypatch: pytest.MonkeyPatch, plan: str, runner: str) -> None:
+    """Serve fixture text from the same fetch the network test uses."""
+
+    def raw(path: str) -> str:
+        if path.endswith("/plan.mjs"):
+            return plan
+        if path.endswith("/run.mjs"):
+            return runner
+        raise AssertionError(f"offline fixture does not fetch {path}")
+
+    monkeypatch.setattr(f"{__name__}._raw", raw)
+
+
+def _fetched_release_scripts() -> tuple[str, str]:
+    return (
+        _raw(".github/actions/semantic-release/plan.mjs"),
+        _raw(".github/actions/semantic-release/run.mjs"),
+    )
+
+
+def test_offline_fixture_accepts_the_current_guard(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_release_scripts(monkeypatch, _PLAN_FIXTURE, _RUN_FIXTURE)
+    _check_release_scripts(*_fetched_release_scripts())
+
+
+def test_offline_fixture_accepts_github_sha_held_in_a_variable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_release_scripts(monkeypatch, _PLAN_FIXTURE, _RUN_SHA_IN_VARIABLE)
+    _check_release_scripts(*_fetched_release_scripts())
+
+
+def test_offline_fixture_accepts_github_sha_assigned_in_the_non_candidate_branch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_release_scripts(monkeypatch, _PLAN_FIXTURE, _RUN_SHA_IN_ELSE)
+    _check_release_scripts(*_fetched_release_scripts())
+
+
+@pytest.mark.parametrize(
+    ("plan", "runner", "message"),
+    [
+        pytest.param(
+            _PLAN_FIXTURE.replace(
+                "  if (!shaPattern.test(expected ?? '') || commit !== expected) {\n"
+                "    throw new Error('Checked-out HEAD must match the triggering commit');\n"
+                "  }\n",
+                "",
+            ),
+            _RUN_FIXTURE,
+            "checked-out commit is not",
+            id="missing-plan-guard",
+        ),
+        pytest.param(
+            _PLAN_FIXTURE.replace(
+                "const commit = git('rev-parse', 'HEAD').trim();",
+                "const commit = expected;",
+            ),
+            _RUN_FIXTURE,
+            "git rev-parse HEAD",
+            id="commit-copied-from-expected",
+        ),
+        pytest.param(
+            _PLAN_FIXTURE,
+            _RUN_FIXTURE.replace("process.env.GITHUB_SHA", "process.env.GITHUB_REF"),
+            "GITHUB_SHA",
+            id="missing-github-sha",
+        ),
+        pytest.param(
+            _PLAN_FIXTURE,
+            _RUN_SHA_IN_VARIABLE.replace(
+                "const triggering = process.env.GITHUB_SHA;",
+                "const triggering = process.env.GITHUB_REF;",
+            ),
+            "GITHUB_SHA",
+            id="variable-is-not-github-sha",
+        ),
+        pytest.param(
+            _PLAN_FIXTURE,
+            _RUN_FIXTURE.replace(
+                "  execFileSync('git', ['fetch', 'origin', "
+                "`refs/tags/${gitTag}:refs/tags/${gitTag}`, '--force'], {\n"
+                "    cwd,\n"
+                "    encoding: 'utf8',\n"
+                "  });\n",
+                "",
+            ),
+            "must fetch one tag",
+            id="missing-tag-fetch",
+        ),
+        pytest.param(
+            _PLAN_FIXTURE,
+            _RUN_FIXTURE.replace(
+                "refs/tags/${gitTag}:refs/tags/${gitTag}",
+                "refs/heads/main:refs/heads/main",
+            ),
+            "refs/heads/main",
+            id="branch-fetch",
+        ),
+    ],
+)
+def test_offline_fixture_refuses_a_broken_release_script(
+    monkeypatch: pytest.MonkeyPatch, plan: str, runner: str, message: str
+) -> None:
+    assert plan != _PLAN_FIXTURE or runner != _RUN_FIXTURE
+    _patch_release_scripts(monkeypatch, plan, runner)
+    with pytest.raises(AssertionError, match=message):
+        _check_release_scripts(*_fetched_release_scripts())
