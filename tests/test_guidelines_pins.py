@@ -148,14 +148,12 @@ def parsed_release_interface(shared: str) -> tuple[set[str], set[str]]:
     return inputs, outputs
 
 
-def release_interface(shared: str | None = None) -> tuple[set[str], set[str]]:
+def release_interface() -> tuple[set[str], set[str]]:
     """Interface callers must stay inside.
 
-    A provided workflow file, or the pinned file when the network gate is
-    open, is parsed. Otherwise the recorded floor is the interface.
+    The pinned workflow is parsed when the network gate is open. Otherwise
+    the recorded floor is the interface.
     """
-    if shared is not None:
-        return parsed_release_interface(shared)
     if os.environ.get("LIVINGPROOF_NETWORK"):
         return parsed_release_interface(pinned_semantic_release())
     return set(SHARED_RELEASE_INPUTS), set(SHARED_RELEASE_OUTPUTS)
@@ -282,6 +280,40 @@ def test_parsed_interface_must_include_the_recorded_names(dropped_input, dropped
     shared = _workflow_call_document(inputs, outputs)
     with pytest.raises(AssertionError, match=re.escape(missing)):
         parsed_release_interface(shared)
+
+
+def _patch_pinned_workflow(monkeypatch: pytest.MonkeyPatch, shared: str) -> None:
+    monkeypatch.setenv("LIVINGPROOF_NETWORK", "1")
+    monkeypatch.setattr(f"{__name__}.pinned_semantic_release", lambda: shared)
+
+
+def test_release_interface_returns_the_parsed_pinned_names(monkeypatch):
+    inputs = set(SHARED_RELEASE_INPUTS) | {"expected-version", "expected-commit"}
+    outputs = set(SHARED_RELEASE_OUTPUTS) | {"later-out"}
+    shared = _workflow_call_document(inputs, outputs)
+    _patch_pinned_workflow(monkeypatch, shared)
+    assert release_interface() == parsed_release_interface(shared) == (inputs, outputs)
+
+
+@pytest.mark.parametrize(
+    ("dropped_input", "dropped_output", "missing"),
+    [
+        ("draft-release", None, "draft-release"),
+        (None, "commit", "commit"),
+    ],
+)
+def test_release_interface_rejects_a_pinned_workflow_missing_a_floor_key(
+    monkeypatch, dropped_input, dropped_output, missing
+):
+    inputs = set(SHARED_RELEASE_INPUTS)
+    outputs = set(SHARED_RELEASE_OUTPUTS)
+    if dropped_input:
+        inputs.remove(dropped_input)
+    if dropped_output:
+        outputs.remove(dropped_output)
+    _patch_pinned_workflow(monkeypatch, _workflow_call_document(inputs, outputs))
+    with pytest.raises(AssertionError, match=re.escape(missing)):
+        release_interface()
 
 
 def test_callers_are_checked_against_the_parsed_interface():
