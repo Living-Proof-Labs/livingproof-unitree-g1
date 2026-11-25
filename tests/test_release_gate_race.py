@@ -1088,6 +1088,30 @@ def test_offline_fixture_accepts_github_sha_assigned_in_the_non_candidate_branch
             "refs/heads/main",
             id="branch-fetch",
         ),
+        pytest.param(
+            _PLAN_FIXTURE,
+            _RUN_FIXTURE.replace(
+                "  if (taggedCommit !== expectedCommit) {\n"
+                "    throw new Error(`Tag ${gitTag} resolves to ${taggedCommit}, "
+                "expected ${expectedCommit}`);\n"
+                "  }\n",
+                "",
+            ),
+            "must throw when the fetched tag is not",
+            id="peel-comparison-dropped",
+        ),
+        pytest.param(
+            _PLAN_FIXTURE,
+            _RUN_FIXTURE.replace(
+                "  const taggedCommit = execFileSync('git', ['rev-parse', '--verify', "
+                "`refs/tags/${gitTag}^{commit}`], {",
+                "  execFileSync('git', ['checkout', gitTag], { cwd, encoding: 'utf8' });\n"
+                "  const taggedCommit = execFileSync('git', ['rev-parse', '--verify', "
+                "`refs/tags/${gitTag}^{commit}`], {",
+            ),
+            "must not git checkout",
+            id="added-git-checkout",
+        ),
     ],
 )
 def test_offline_fixture_refuses_a_broken_release_script(
