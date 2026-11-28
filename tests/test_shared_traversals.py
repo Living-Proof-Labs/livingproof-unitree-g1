@@ -187,8 +187,100 @@ def run_original_policy_trial(direction, output):
 @pytest.mark.parametrize("direction", ["left", "right"])
 def test_original_policy_runs_each_declared_direction(tmp_path, direction):
     run = run_original_policy_trial(direction, tmp_path / direction)
-    # Completing an original trial proves the adapter can attempt this scenario,
-    # not that its outcome is PASS under every evaluation criterion.
     assert run["trials"]["count"] == 1
     assert len(run["trials"]["results"]) == 1
-    assert (tmp_path / direction / "evidence/trials/trial-01.json").is_file()
+    assert run["trials"]["results"][0]["outcome"] == "crossed_exit"
+
+    obs_path = tmp_path / direction / "evidence/trials/trial-01.json"
+    assert obs_path.is_file()
+    obs = json.loads(obs_path.read_text())
+
+    world = document("world.json")
+    robot_profile = json.loads((ROOT / "robot.json").read_text())
+    conf_profile = json.loads((ROOT / f"configurations/{CONFIGURATION}.json").read_text())
+    fall_height = conf_profile["locomotion"]["fall_base_height"]["value"]
+    lateral_limit = (
+        world["dimensions"]["clear_width"] / 2 - robot_profile["dimensions"]["width"]["value"] / 2
+    )
+    length = route_length(world, document(direction + ".json")["places"])
+    time_limit = 2 * length / 0.5 + 5
+
+    assert obs["end"] == "crossed_exit"
+    assert obs["left_world"] is None
+    assert obs["exit_time"] is not None and obs["exit_time"] <= time_limit
+    assert obs["places_entered"]["corner"] is not None
+    assert obs["places_entered"]["corner"] < obs["exit_time"]
+    assert obs["wall_contacts"] == []
+    assert obs["max_route_distance"]["value"] <= lateral_limit
+    assert obs["min_base_height"]["value"] >= fall_height
+
+
+@pytest.mark.parametrize("direction", ["left", "right"])
+def test_configurable_route_control_mcap_outcome_and_pose_api(tmp_path, direction):
+    from livingproof_sim_mujoco import observations
+    from livingproof_sim_mujoco.media import Recorder
+    from mcap.reader import make_reader
+
+    world = document("world.json")
+    parameters = document(direction + ".json")
+    places = scenario.scenario_places(world, parameters)
+    conf_profile = json.loads((ROOT / f"configurations/{CONFIGURATION}.json").read_text())
+    fall_height = conf_profile["locomotion"]["fall_base_height"]["value"]
+    robot_profile = json.loads((ROOT / "robot.json").read_text())
+    lateral_limit = (
+        world["dimensions"]["clear_width"] / 2 - robot_profile["dimensions"]["width"]["value"] / 2
+    )
+    length = route_length(world, parameters["places"])
+    time_limit = 2 * length / 0.5 + 5
+
+    model, data, ctrl, walls = compose.place(ROBOT, CONFIGURATION, world, places["start"]["name"])
+    start_pose = ROBOT.get_pose(model, data, CONFIGURATION)
+    expected_yaw = 0.0 if direction == "left" else -math.pi / 2
+    assert start_pose.yaw == pytest.approx(expected_yaw, abs=1e-4)
+
+    policy = ROBOT.policy(model, ctrl)
+    mcap_path = tmp_path / f"{direction}.mcap"
+    recorder = Recorder(model, ROBOT.base_body(CONFIGURATION), mcap_path=mcap_path, video_path=None)
+    step = ROBOT.drive(
+        CONFIGURATION,
+        model,
+        ctrl,
+        policy,
+        places,
+        route_control={"mode": "feedback", "turn_direction": direction},
+    )
+    obs = observations.observe_route(
+        model,
+        data,
+        step,
+        base_body=ROBOT.base_body(CONFIGURATION),
+        walls=walls,
+        seconds=time_limit,
+        route=places["route"],
+        exit_place=places["exit"],
+        through=places["through"],
+        sample_hz=ROBOT.runner_settings()["sample_hz"],
+        on_step=recorder,
+    )
+    recorder.close()
+
+    assert obs["end"] == "crossed_exit"
+    assert obs["wall_contacts"] == []
+    assert obs["max_route_distance"]["value"] <= lateral_limit
+    assert obs["min_base_height"]["value"] >= fall_height
+
+    poses = []
+    with mcap_path.open("rb") as handle:
+        for _, channel, message in make_reader(handle).iter_messages(topics=["/base_pose"]):
+            if channel.topic == "/base_pose":
+                poses.append(json.loads(message.data))
+    assert len(poses) >= 20
+    xyz = []
+    for msg in poses:
+        pos = msg["pose"]["position"]
+        assert pos["z"] >= fall_height
+        xyz.append([pos["x"], pos["y"], pos["z"]])
+    assert any(
+        crosses_exit(a, b, places["route"]["points"], places["exit"])
+        for a, b in zip(xyz[:-1], xyz[1:])
+    )
